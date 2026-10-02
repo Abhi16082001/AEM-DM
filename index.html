@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personal Bill Creator — Login</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js" defer></script>
+  <script src="js/login.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <section class="login-card" aria-labelledby="page-title">
+      <div class="brand-mark" aria-hidden="true">BC</div>
+      <p class="eyebrow">PERSONAL WORKSPACE</p>
+      <h1 id="page-title">Bill Creator</h1>
+      <p class="subheading">Sign in to continue to your billing workspace.</p>
+
+      <form id="login-form">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username"
+               required maxlength="80" placeholder="Enter your username">
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password"
+               required maxlength="200" placeholder="Enter your password">
+
+        <button id="login-button" type="submit">
+          <span class="button-label">Sign in</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+      <p class="security-note"><span aria-hidden="true">🔒</span> Login is verified by Google Apps Script.</p>
+    </section>
+    <footer>Personal use only</footer>
+  </main>
+</body>
+</html>
