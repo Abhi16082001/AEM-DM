@@ -177,59 +177,80 @@
     }
   }
 
-  async function deleteClient(client) {
-    if (!confirm(`Delete client ${client.Id} (${client.Name || ""})? This cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const result = await window.App.apiRequest("deleteClient", {
-        id: client.Id
-      });
-
-      showStatus(tableStatus, result.message || "Client deleted.", "success");
-
-      if (editingId === client.Id) resetForm();
-
-      await loadClients();
-    } catch (error) {
-      showStatus(tableStatus, error.message, "error");
-    }
+ 
+async function deleteClient(client) {
+  if (!confirm(`Delete client ${client.Id} (${client.Name || ""})? This cannot be undone.`)) {
+    return;
   }
 
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
+  try {
+    const result = await window.App.apiRequest("deleteClient", {
+      id: client.Id
+    });
 
-    if (busy) return;
+    if (editingId === client.Id) resetForm();
 
-    if (!form.reportValidity()) return;
+    await loadClients();
 
-    const data = {};
+    showStatus(
+      tableStatus,
+      result.message || "Client deleted successfully.",
+      "success"
+    );
+  } catch (error) {
+    showStatus(tableStatus, error.message, "error");
+  }
+}
 
-    for (const field of editableFields) {
-      data[field.name] = form.elements.namedItem(field.name).value.trim();
-    }
+form.addEventListener("submit", async event => {
+  event.preventDefault();
 
-    setBusy(true);
-    showStatus(formStatus, "");
+  if (busy || !form.reportValidity()) return;
 
-    try {
-      const result = editingId
-        ? await window.App.apiRequest("updateClient", {
-            id: editingId,
-            data
-          })
-        : await window.App.apiRequest("createClient", { data });
+  const wasEditing = Boolean(editingId);
+  const data = {};
 
-      showStatus(formStatus, result.message || "Saved successfully.", "success");
-      resetForm();
-      await loadClients();
-    } catch (error) {
-      showStatus(formStatus, error.message, "error");
-    } finally {
-      setBusy(false);
-    }
-  });
+  for (const field of editableFields) {
+    data[field.name] = form.elements.namedItem(field.name).value.trim();
+  }
+
+  setBusy(true);
+  showStatus(formStatus, "");
+
+  try {
+    const result = wasEditing
+      ? await window.App.apiRequest("updateClient", {
+          id: editingId,
+          data
+        })
+      : await window.App.apiRequest("createClient", { data });
+
+    // Reset the form after the server confirms success.
+    resetForm();
+
+    // Reload the table immediately.
+    await loadClients();
+
+    // Show confirmation after refreshing the table.
+    showStatus(
+      formStatus,
+      result.message || (wasEditing
+        ? "Client updated successfully."
+        : "Client created successfully."),
+      "success"
+    );
+
+    // Bring the updated table into view.
+    document.querySelector(".table-panel").scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  } catch (error) {
+    showStatus(formStatus, error.message, "error");
+  } finally {
+    setBusy(false);
+  }
+});
 
   tableBody.addEventListener("click", async event => {
     const button = event.target.closest("button[data-action]");
