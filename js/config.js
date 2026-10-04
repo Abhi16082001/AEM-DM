@@ -75,6 +75,14 @@ window.APP_CONFIG = {
         editable: true,
         required: false,
         maxLength: 30
+      },
+        {
+        name: "CompanyName",
+        label: "Company Name",
+        type: "text",
+        visibleInTable: true,
+        editable: true,
+        required: false
       }
     ],
 
