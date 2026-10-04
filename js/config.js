@@ -1,6 +1,6 @@
 
 window.APP_CONFIG = {
-  API_URL: "https://script.google.com/macros/s/AKfycbz5wS6DLFNlElE8VbDB0R_gRwTAy26Cr-iXZFpxgTeH86I_UCmuewW_1E7hnv7RldpL/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbwMXVJbB9p1gN97r1bFDmv7pHpjdy4txkamzE4odFA1jhejuo-UUbu_i9v-ohrmcJRI/exec",
 
   APP_NAME: "Bill Creator",
   SESSION_TOKEN_KEY: "billCreatorToken",
