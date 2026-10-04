@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biller Management | Bill Creator</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="page-container">
+    <header class="page-header">
+      <div>
+        <h1>Biller Management</h1>
+        <p>Manage the details that appear on your bills and invoices.</p>
+      </div>
+    </header>
+
+    <section class="panel biller-form-panel">
+      <div class="section-heading">
+        <h2 id="formHeading">Create Biller</h2>
+        <p>Add company, contact and billing details.</p>
+      </div>
+
+      <form id="billerForm">
+        <div id="billerFields" class="biller-fields"></div>
+
+        <div id="formStatus" class="status" role="status"
+             aria-live="polite"></div>
+
+        <div class="form-actions">
+          <button type="submit" id="saveButton" class="btn btn-primary">
+            Save Biller
+          </button>
+          <button type="button" id="cancelButton" class="btn btn-secondary"
+                  hidden>
+            Cancel Edit
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="section-heading">
+        <h2>Saved Billers</h2>
+        <p>View, edit or delete existing billers.</p>
+      </div>
+
+      <div id="tableStatus" class="status" role="status"
+           aria-live="polite"></div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead id="billerTableHead"></thead>
+          <tbody id="billerTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="detailDialog" class="detail-dialog">
+    <div class="dialog-heading">
+      <h2>Biller Details</h2>
+      <button type="button" id="closeDialogButton"
+              class="btn btn-secondary">Close</button>
+    </div>
+    <div id="detailBody" class="biller-detail-body"></div>
+  </dialog>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/billers.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@ window.APP_CONFIG = {
 
   NAV_LINKS: [
     { label: "Home", path: "home.html" },
-    { label: "Client Management", path: "clients.html" }
+    // { label: "Client Management", path: "clients.html" }
   ],
 
   MENU_CARDS: [
@@ -18,7 +18,14 @@ window.APP_CONFIG = {
       description: "Create, view, edit and manage your clients.",
       path: "clients.html",
       icon: "users"
-    }
+    },
+     {
+    id: "billers",
+    title: "Biller Management",
+    description: "Manage company details, contact information and formatted billing details.",
+    path: "billers.html",
+    icon: "building-2"
+  }
   ],
 
   CLIENTS: {
@@ -72,5 +79,94 @@ window.APP_CONFIG = {
     ],
 
     ACTIONS: ["view", "edit", "delete"]
-  }
+  },
+
+BILLERS: {
+  SHEET_NAME: "Billers",
+  ID_PREFIX: "B",
+  FIELDS: [
+    {
+      name: "Id",
+      label: "Biller ID",
+      type: "text",
+      visibleInTable: true,
+      editable: false,
+      required: false
+    },
+    {
+      name: "Name",
+      label: "Biller Name",
+      type: "text",
+      visibleInTable: true,
+      editable: true,
+      required: true,
+      maxLength: 150
+    },
+    {
+      name: "Phone",
+      label: "Phone",
+      type: "text",
+      visibleInTable: true,
+      editable: true,
+      required: false,
+      maxLength: 30
+    },
+    {
+      name: "Alt.Phone",
+      label: "Alternate Phone",
+      type: "text",
+      visibleInTable: false,
+      editable: true,
+      required: false,
+      maxLength: 30
+    },
+    {
+      name: "GST",
+      label: "GST Number",
+      type: "text",
+      visibleInTable: true,
+      editable: true,
+      required: false,
+      maxLength: 30
+    },
+    {
+      name: "Company Name",
+      label: "Company Name",
+      type: "text",
+      visibleInTable: true,
+      editable: true,
+      required: false,
+      maxLength: 200
+    },
+    {
+      name: "Address",
+      label: "Address",
+      type: "richtext",
+      visibleInTable: false,
+      editable: true,
+      required: false,
+      maxLength: 5000
+    },
+    {
+      name: "PAN",
+      label: "PAN",
+      type: "text",
+      visibleInTable: true,
+      editable: true,
+      required: false,
+      maxLength: 20
+    },
+    {
+      name: "Description",
+      label: "Description",
+      type: "richtext",
+      visibleInTable: false,
+      editable: true,
+      required: false,
+      maxLength: 10000
+    }
+  ],
+  ACTIONS: ["view", "edit", "delete"]
+}
+  
 };
