@@ -50,7 +50,7 @@
     const records=state.bills.filter(b=>{
       const c=state.clients.find(x=>String(x.Id)===String(b.ClientId));
       const bi=state.billers.find(x=>String(x.Id)===String(b.BillerId));
-      return [b.BillNo,b.OrderNo,b.Date,clientLabel(c||{}),billerLabel(bi||{}),b.GrandTotal].join(" ").toLowerCase().includes(q);
+      return [b.BillNo,b.OrderNo,b.Date,clientLabel(c||{}),billerLabel(bi||{}),b.TotalAmount,b.GrandTotal].join(" ").toLowerCase().includes(q);
     }).sort((a,b)=>String(b.BillNo).localeCompare(String(a.BillNo),undefined,{numeric:true}));
     const tbody=$("bills-table-body");
     if(!records.length){tbody.innerHTML='<tr><td colspan="7" class="empty-row">No bills found. Click “New bill” to create one.</td></tr>';return;}
@@ -58,9 +58,9 @@
       const c=state.clients.find(x=>String(x.Id)===String(b.ClientId));
       const bi=state.billers.find(x=>String(x.Id)===String(b.BillerId));
       return `<tr>
-        <td>${esc(b.BillNo)}</td><td>${esc(b.Date||"")}</td><td>${esc(b.OrderNo||"—")}</td>
+        <td>${esc(b.BillNo)}</td><td>${esc(b.Date||"")}</td>
         <td>${esc(clientLabel(c||{Name:b.ClientId}))}</td><td>${esc(billerLabel(bi||{Name:b.BillerId}))}</td>
-        <td>₹${fmt(b.GrandTotal)}</td>
+        <td>₹${fmt(b.TotalAmount)}</td><td>₹${fmt(b.GrandTotal)}</td>
         <td class="action-cell">
           <button class="button button-secondary button-small" data-action="view" data-bill="${esc(b.BillNo)}">View</button>
           <button class="button button-secondary button-small" data-action="edit" data-bill="${esc(b.BillNo)}">Edit</button>
@@ -80,13 +80,15 @@
         renderBills(); showStatus("page-status",`Bill ${billNo} deleted.`,"success");
       } else {
         const result=await api("getBill",{billNo});
-        openEditor(result.bill,result.particulars||[],action==="view");
+        if(action==="view") await showInvoice(result.bill,result.particulars||[]);
+        else openEditor(result.bill,result.particulars||[],false);
       }
     } catch(err){showStatus("page-status",err.message,"error");}
   });
 
   function openEditor(bill=null, particulars=[], readOnly=false) {
     state.editing=!!bill; state.originalBillNo=bill?String(bill.BillNo):"";
+    $("invoice-view-panel").hidden=true;
     $("bill-form").reset();
     $("particulars-container").innerHTML="";
     $("original-bill-no").value=state.originalBillNo;
@@ -94,6 +96,7 @@
     $("bill-no").value=bill?.BillNo || suggestBillNo();
     $("bill-no").readOnly=readOnly;
     $("order-no").value=bill?.OrderNo||"";
+    $("site-address").value=bill?.SiteAddress||"";
     $("bill-date").value=bill?.Date||today();
     const c=state.clients.find(x=>String(x.Id)===String(bill?.ClientId));
     const bi=state.billers.find(x=>String(x.Id)===String(bill?.BillerId));
@@ -122,10 +125,9 @@
     $("save-bill-button").hidden=readOnly;
     $("add-particular-button").hidden=readOnly;
     $("calculate-bill-button").hidden=readOnly;
-    $("print-bill-button").hidden=false;
     $("cancel-bill-button").hidden=readOnly;
     $("bill-form").querySelectorAll("input,textarea,button").forEach(el=>{
-      if(el.id==="print-bill-button"||el.id==="close-editor-button")return;
+      if(el.id==="close-editor-button")return;
       if(el.id==="save-bill-button"||el.id==="cancel-bill-button"||el.id==="add-particular-button"||el.id==="calculate-bill-button")return;
       el.disabled=readOnly;
     });
@@ -142,13 +144,142 @@
     return String(max+1);
   }
   function closeEditor(){
-    $("bill-editor-panel").hidden=true;$("bill-list-panel").hidden=false;
+    $("bill-editor-panel").hidden=true;$("invoice-view-panel").hidden=true;$("bill-list-panel").hidden=false;
     $("bill-no").readOnly=false;
     $("bill-form").querySelectorAll("input,textarea,button").forEach(el=>el.disabled=false);
     $("tax-enabled").disabled=false;
     $("save-bill-button").hidden=false;$("add-particular-button").hidden=false;$("calculate-bill-button").hidden=false;$("cancel-bill-button").hidden=false;
     renderBills();
   }
+  function firstValue(record, keys, fallback="") {
+    for (const key of keys) {
+      const value = record?.[key];
+      if (value !== undefined && value !== null && String(value).trim() !== "") return String(value).trim();
+    }
+    return fallback;
+  }
+  function displayDate(value) {
+    const text=String(value||"").trim();
+    const match=text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : text;
+  }
+  function invoiceDetailsHtml(particulars) {
+    return particulars.map((p,index)=>{
+      const details=Array.isArray(p.details)&&p.details.length?p.details:[{}];
+      const rates=[...new Set(details.map(d=>String(d.Rate||"").trim()).filter(Boolean))].join("\n");
+      return details.map((d,detailIndex)=>`<tr>
+        ${detailIndex===0?`<td class="invoice-sno" rowspan="${details.length}">${index+1}.</td><td class="invoice-particular" rowspan="${details.length}"><strong>${esc(p.ParticularTitle||"")}</strong>${details.map(detail=>`<div class="invoice-description">${esc(detail.Description||"")}</div>`).join("")}</td>`:""}
+        <td class="invoice-hsn">${esc(d["HSN Code"]||"")}</td>
+        <td class="invoice-quantity">${esc(d.Quantity||"")}</td>
+        ${detailIndex===0?`<td class="invoice-rate" rowspan="${details.length}">${esc(rates)}</td><td class="invoice-amount" rowspan="${details.length}">₹ ${esc(fmt(p.Amount))}</td>`:""}
+      </tr>`).join("");
+    }).join("");
+  }
+  function invoiceTaxRows(bill) {
+    const enabled=String(bill.Tax).toLowerCase()==="true";
+    const inState=String(bill.InState).toLowerCase()==="true";
+    const outState=String(bill.OutState).toLowerCase()==="true";
+    let html="";
+    if(enabled&&inState){
+      html+=`<tr class="invoice-total-row"><td colspan="5" class="invoice-total-label">Add CGST @ ${esc(bill.CGST||0)}% ₹</td><td class="invoice-total-value">${esc(fmt(bill.CGSTAmount))}</td></tr>`;
+      html+=`<tr class="invoice-total-row"><td colspan="5" class="invoice-total-label">Add SGST @ ${esc(bill.SGST||0)}% ₹</td><td class="invoice-total-value">${esc(fmt(bill.SGSTAmount))}</td></tr>`;
+    }
+    if(enabled&&outState){
+      html+=`<tr class="invoice-total-row"><td colspan="5" class="invoice-total-label">Add IGST @ ${esc(bill.IGST||bill.TaxPercentage||0)}% ₹</td><td class="invoice-total-value">${esc(fmt(bill.IGSTAmount))}</td></tr>`;
+    }
+    return html;
+  }
+  async function showInvoice(bill, particulars) {
+    // Refresh reference records at view time and resolve by the stored IDs.
+    showStatus("page-status","Loading client and biller details…");
+    const [clientsResponse,billersResponse]=await Promise.all([api("listClients"),api("listBillers")]);
+    const clients=clientsResponse.clients||[];
+    const billers=billersResponse.billers||[];
+    state.clients=clients;
+    state.billers=billers;
+    const client=clients.find(c=>String(c.Id)===String(bill.ClientId))||state.clients.find(c=>String(c.Id)===String(bill.ClientId))||{};
+    const biller=billers.find(b=>String(b.Id)===String(bill.BillerId))||state.billers.find(b=>String(b.Id)===String(bill.BillerId))||{};
+    const clientName=firstValue(client,["CompanyName","Company Name","Name"],String(bill.ClientId||""));
+    const billerName=firstValue(biller,["Company Name","CompanyName","Name"],String(bill.BillerId||""));
+    const gstin=firstValue(biller,["GSTIN","GST","GST No","GSTIN No."]);
+    const pan=firstValue(biller,["PAN","PAN NO.","PAN No"]);
+    const phone=firstValue(biller,["Phone","Mobile","Phone Number"]);
+    const altPhone=firstValue(biller,["Alt.Phone","Alt Phone","Alternate Phone","Alternate Phone Number"]);
+    const billerDescription=firstValue(biller,["Description"]);
+    const billerAddress=firstValue(biller,["Address"]);
+    const clientAddress=firstValue(client,["Address","Company Address"]);
+    const clientGst=firstValue(client,["GSTIN","GST","GST No","GSTIN No."]);
+    const amountWords=firstValue(bill,["AmountInWords"]);
+    const siteAddress=firstValue(bill,["SiteAddress"]);
+    const html=`<div class="invoice-topline">
+        <div><div>GSTIN: ${esc(gstin)}</div><div>PAN NO.: ${esc(pan)}</div></div>
+        <div class="invoice-title">TAX INVOICE</div>
+        <div class="invoice-phone"><div>Mob.: ${esc(phone)}</div><div>${esc(altPhone)}</div></div>
+      </div>
+      <header class="invoice-company">
+        <h1>${esc(billerName)}</h1>
+        ${billerDescription?`<p>${esc(billerDescription)}</p>`:""}
+        ${billerAddress?`<p class="invoice-company-address">${esc(billerAddress)}</p>`:""}
+      </header>
+      <section class="invoice-party-grid">
+        <div class="invoice-client-details">
+          <p><strong>Name:</strong> ${esc(clientName)}</p>
+          <p><strong>Address:</strong> ${esc(clientAddress)}</p>
+          <p><strong>Site Address:</strong> ${esc(siteAddress)}</p>
+          <p><strong>GSTIN No.:</strong> ${esc(clientGst)}</p>
+        </div>
+        <div class="invoice-bill-meta">
+          <p><strong>Serial No.</strong> ${esc(bill.BillNo||"")}</p>
+          <p><strong>Order No.</strong> ${esc(bill.OrderNo||"")}</p>
+          <p class="invoice-date"><strong>Date:</strong> ${esc(displayDate(bill.Date))}</p>
+        </div>
+      </section>
+      <table class="invoice-table">
+        <thead><tr><th>S.No.</th><th>Particulars</th><th>HSN<br>code</th><th>Quantity</th><th>Rate</th><th>Amount</th></tr></thead>
+        <tbody>${invoiceDetailsHtml(particulars)}
+          <tr class="invoice-total-row"><td></td><td colspan="4" class="invoice-total-label">Total Amount ₹</td><td class="invoice-total-value">${esc(fmt(bill.TotalAmount))}</td></tr>
+          ${invoiceTaxRows(bill)}
+          <tr class="invoice-total-row invoice-grand-total"><td colspan="5" class="invoice-total-label">Grand Total ₹</td><td class="invoice-total-value">${esc(fmt(bill.GrandTotal))}</td></tr>
+          <tr class="invoice-words-row"><td colspan="3"><strong>Rupees:</strong> ${esc(amountWords)}</td><td colspan="3" class="invoice-for-biller"><strong>For ${esc(billerName)}</strong></td></tr>
+          <tr class="invoice-footer-row"><td colspan="6"><div><strong>E. &amp; O.E.</strong></div><div class="invoice-terms"><strong>Terms &amp; Conditions:</strong><br>All disputes subject to Delhi Jurisdiction only.</div><div class="invoice-signatory">Authorized Signatory</div></td></tr>
+        </tbody>
+      </table>`;
+    $("invoice-document").innerHTML=html;
+    $("invoice-view-title").textContent=`View bill ${bill.BillNo}`;
+    $("bill-list-panel").hidden=true;
+    $("bill-editor-panel").hidden=true;
+    $("invoice-view-panel").hidden=false;
+    showStatus("page-status","");
+    showStatus("invoice-status","");
+    state.viewBillNo=String(bill.BillNo||"");
+    state.viewInvoice=true;
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  $("back-from-invoice-button").addEventListener("click",()=>{
+    $("invoice-view-panel").hidden=true;
+    $("bill-list-panel").hidden=false;
+    state.viewInvoice=false;
+    renderBills();
+  });
+  $("download-invoice-button").addEventListener("click",async()=>{
+    if(!window.html2pdf){showStatus("invoice-status","PDF generator did not load. Check your internet connection and reload the page.","error");return;}
+    const button=$("download-invoice-button");
+    button.disabled=true;button.textContent="Generating PDF…";
+    try{
+      const element=$("invoice-document");
+      const filename=`Bill-${String(state.viewBillNo||"invoice").replace(/[^a-zA-Z0-9_-]/g,"_")}.pdf`;
+      await window.html2pdf().set({
+        margin:[8,8,8,8],filename,
+        image:{type:"jpeg",quality:0.98},
+        html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",scrollY:0},
+        jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
+        pagebreak:{mode:["css","legacy"]}
+      }).from(element).save();
+      showStatus("invoice-status","PDF downloaded.","success");
+    }catch(err){showStatus("invoice-status",`Could not generate PDF: ${err.message||err}`,"error");}
+    finally{button.disabled=false;button.textContent="Download PDF";}
+  });
+
   $("new-bill-button").addEventListener("click",()=>openEditor());
   $("close-editor-button").addEventListener("click",closeEditor);
   $("cancel-bill-button").addEventListener("click",closeEditor);
@@ -286,7 +417,7 @@
     if(particulars.some(p=>!p.ParticularTitle)){showStatus("form-status","Every particular needs a title.","error");return;}
     const bill={
       ClientId:client.Id, BillerId:biller.Id, BillNo:billNo, OrderNo:$("order-no").value.trim(),
-      Date:$("bill-date").value, TotalAmount:String(money($("total-amount").value)),
+      SiteAddress:$("site-address").value.trim(), Date:$("bill-date").value, TotalAmount:String(money($("total-amount").value)),
       AmountInWords:$("amount-in-words").value.trim(), Tax:tax,
       TaxPercentage:tax?String(money($("tax-percentage").value)):null,
       InState:tax?supply==="InState":null, OutState:tax?supply==="OutState":null,
@@ -307,7 +438,6 @@
     }catch(err){showStatus("form-status",err.message,"error");}
     finally{save.disabled=false;}
   });
-  $("print-bill-button").addEventListener("click",()=>window.print());
 
   // Reset read-only state when creating/editing after viewing.
   const originalOpenEditor=openEditor;

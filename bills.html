@@ -7,6 +7,7 @@
   <title>Bill Creator — Bill Management</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/bills.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" defer></script>
   <script src="js/config.js" defer></script>
   <script src="js/common.js" defer></script>
   <script src="js/bills.js" defer></script>
@@ -36,7 +37,7 @@
       </div>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Bill No.</th><th>Date</th><th>Order No.</th><th>Client</th><th>Biller</th><th>Grand Total</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Bill No.</th><th>Date</th><th>Client</th><th>Biller</th><th>Total Amount</th><th>Grand Total</th><th>Actions</th></tr></thead>
           <tbody id="bills-table-body"><tr><td colspan="7">Loading bills…</td></tr></tbody>
         </table>
       </div>
@@ -57,6 +58,10 @@
           <div class="field-group">
             <label for="order-no">Order number</label>
             <input id="order-no" maxlength="120">
+          </div>
+          <div class="field-group">
+            <label for="site-address">Site address</label>
+            <input id="site-address" maxlength="500" placeholder="Optional site address">
           </div>
           <div class="field-group">
             <label for="bill-date">Date <span class="required-mark">*</span></label>
@@ -126,11 +131,22 @@
         </div>
         <div class="form-actions">
           <button class="button button-primary" id="save-bill-button" type="submit">Save bill</button>
-          <button class="button button-secondary" id="print-bill-button" type="button">Print / Save PDF</button>
           <button class="button button-secondary" id="cancel-bill-button" type="button">Cancel</button>
         </div>
         <p id="form-status" class="status" role="status" aria-live="polite"></p>
       </form>
+    </section>
+
+    <section class="panel invoice-view-panel" id="invoice-view-panel" hidden>
+      <div class="panel-heading invoice-view-actions">
+        <div><h2 id="invoice-view-title">View bill</h2><p class="muted">Invoice preview in your supplied bill format.</p></div>
+        <div class="invoice-action-buttons">
+          <button class="button button-secondary" id="back-from-invoice-button" type="button">Back to bills</button>
+          <button class="button button-primary" id="download-invoice-button" type="button">Download PDF</button>
+        </div>
+      </div>
+      <p id="invoice-status" class="status" role="status" aria-live="polite"></p>
+      <div class="invoice-preview-shell"><div id="invoice-document" class="invoice-page"></div></div>
     </section>
   </main>
 </body>

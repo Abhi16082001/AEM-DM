@@ -7,7 +7,7 @@
 const BILL_HEADERS_ = [
   "ClientId","BillerId","BillNo","OrderNo","Date","TotalAmount",
   "AmountInWords","Tax","TaxPercentage","InState","OutState",
-  "CGST","SGST","IGST","GrandTotal","CGSTAmount","SGSTAmount","IGSTAmount"
+  "CGST","SGST","IGST","GrandTotal","CGSTAmount","SGSTAmount","IGSTAmount","SiteAddress"
 ];
 const BILL_PARTICULAR_HEADERS_ = ["BillNo","ParticularTitle","SNo","Amount"];
 const BILL_DETAIL_HEADERS_ = ["BillNo","SNo","Description","Quantity","HSN Code","Rate"];
@@ -19,11 +19,16 @@ function billSheet_(name, expectedHeaders) {
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1,1,1,expectedHeaders.length).setValues([expectedHeaders]);
     sheet.setFrozenRows(1);
-  } else if (name === "Bills" && sheet.getLastColumn() === 15 && expectedHeaders.length === 18) {
+  } else if (name === "Bills" && sheet.getLastColumn() === 15 && expectedHeaders.length >= 18) {
     const legacy = sheet.getRange(1,1,1,15).getDisplayValues()[0].map(v=>String(v).trim());
     const expectedLegacy = expectedHeaders.slice(0,15);
     if (expectedLegacy.every((h,i)=>legacy[i]===h)) {
-      sheet.getRange(1,16,1,3).setValues([expectedHeaders.slice(15)]);
+      sheet.getRange(1,16,1,expectedHeaders.length-15).setValues([expectedHeaders.slice(15)]);
+    }
+  } else if (name === "Bills" && sheet.getLastColumn() === expectedHeaders.length-1) {
+    const existing = sheet.getRange(1,1,1,expectedHeaders.length-1).getDisplayValues()[0].map(v=>String(v).trim());
+    if (expectedHeaders.slice(0,-1).every((h,i)=>existing[i]===h)) {
+      sheet.getRange(1,expectedHeaders.length).setValue(expectedHeaders[expectedHeaders.length-1]);
     }
   }
   const headers = sheet.getRange(1,1,1,Math.max(sheet.getLastColumn(),expectedHeaders.length))
@@ -107,9 +112,10 @@ function saveBill_(payload, originalBillNoValue) {
       SGST:tax&&inState?billNum_(bill.SGST,"SGST rate",false):"",
       IGST:tax&&outState?billNum_(bill.IGST,"IGST rate",false):"",
       GrandTotal:billNum_(bill.GrandTotal,"Grand total",false),
-      CGSTAmount:tax&&inState?Math.round(billNum_(bill.TotalAmount,"Total amount",false)*billNum_(bill.CGST,"CGST rate",false))/100:"",
-      SGSTAmount:tax&&inState?Math.round(billNum_(bill.TotalAmount,"Total amount",false)*billNum_(bill.SGST,"SGST rate",false))/100:"",
-      IGSTAmount:tax&&outState?Math.round(billNum_(bill.TotalAmount,"Total amount",false)*billNum_(bill.IGST,"IGST rate",false))/100:""
+      CGSTAmount:tax&&inState?Number((billNum_(bill.TotalAmount,"Total amount",false)*billNum_(bill.CGST,"CGST rate",false)/100).toFixed(2)):"",
+      SGSTAmount:tax&&inState?Number((billNum_(bill.TotalAmount,"Total amount",false)*billNum_(bill.SGST,"SGST rate",false)/100).toFixed(2)):"",
+      IGSTAmount:tax&&outState?Number((billNum_(bill.TotalAmount,"Total amount",false)*billNum_(bill.IGST,"IGST rate",false)/100).toFixed(2)):"",
+      SiteAddress:billText_(bill.SiteAddress,500,"Site address")
     };
     const seen=new Set();
     const parts=[], details=[];
