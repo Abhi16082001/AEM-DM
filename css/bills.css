@@ -1,0 +1,53 @@
+/* Bill Management additions; shared controls come from css/style.css */
+.bills-page .panel { margin-top: 20px; }
+.bills-page .panel-heading { align-items: flex-start; }
+.bill-search { max-width: 460px; margin: 0 0 16px; }
+.section-subheading { display:flex; justify-content:space-between; align-items:center; gap:14px; margin:30px 0 14px; }
+.section-subheading h3 { margin:0; font-size:17px; }
+.section-subheading p { margin:4px 0 0; font-size:13px; }
+.particular-card { margin:14px 0; padding:18px; border:1px solid var(--border); border-radius:14px; background:#fcfcff; }
+.particular-head { display:grid; grid-template-columns:minmax(160px,1.5fr) minmax(110px,.7fr) auto; gap:12px; align-items:end; }
+.particular-head h4 { margin:0 0 12px; }
+.detail-heading { margin:18px 0 8px; font-size:13px; font-weight:800; }
+.detail-row { display:grid; grid-template-columns:minmax(160px,1.5fr) minmax(100px,.8fr) minmax(100px,.8fr) minmax(100px,.8fr) auto; gap:10px; align-items:end; padding:10px 0; border-top:1px solid #eceef5; }
+.detail-row .field-group { gap:5px; }
+.detail-row label, .particular-head label { font-size:12px; }
+.detail-row input, .particular-head input { padding:9px 10px; }
+.row-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.button-small { min-height:34px; padding:6px 10px; font-size:12px; }
+.button-danger { color:#b91c1c; background:#fff; border-color:#fecaca; }
+.calculation-row { display:flex; justify-content:space-between; align-items:end; gap:16px; margin:20px 0; }
+.total-field { width:min(100%,300px); }
+.tax-box { margin:22px 0; padding:18px; border:1px solid var(--border); border-radius:14px; background:#fafbff; }
+.tax-toggle { display:flex; align-items:center; gap:9px; }
+.tax-toggle input, .radio-field input { width:auto; display:inline-block; }
+.tax-grid { margin-top:16px; }
+.radio-field { border:0; padding:0; margin:0; }
+.radio-field legend { margin-bottom:8px; font-size:13px; font-weight:700; }
+.radio-field label { display:inline-flex; align-items:center; gap:7px; margin:0 14px 8px 0; }
+.tax-note { font-size:12px; margin:14px 0 0; }
+.totals-grid { margin-top:20px; }
+.action-cell { white-space:nowrap; }
+.action-cell .button { margin:2px; }
+.empty-row { text-align:center; color:var(--muted); padding:26px; }
+.status { white-space:pre-wrap; }
+@media(max-width:760px) {
+  .particular-head { grid-template-columns:1fr 1fr; }
+  .particular-head .particular-remove { grid-column:1/-1; justify-self:start; }
+  .detail-row { grid-template-columns:1fr 1fr; border:1px solid var(--border); border-radius:10px; padding:12px; margin:10px 0; }
+  .detail-row .field-group:first-child { grid-column:1/-1; }
+  .detail-row .row-actions { grid-column:1/-1; }
+  .calculation-row { align-items:stretch; flex-direction:column; }
+  .total-field { width:100%; }
+  .section-subheading { align-items:flex-start; }
+}
+@media print {
+  body { background:#fff; }
+  #navbar, .page-heading, #bill-list-panel, .form-actions, .section-subheading button,
+  .particular-remove, .detail-row .row-actions, #calculate-bill-button, #close-editor-button { display:none!important; }
+  .app-container { width:100%; padding:0; }
+  #bill-editor-panel { display:block!important; border:0; box-shadow:none; padding:0; }
+  #bill-form input, #bill-form textarea { border:0; box-shadow:none; padding:2px; background:transparent; }
+  .particular-card, .tax-box { break-inside:avoid; }
+  .button { display:none!important; }
+}

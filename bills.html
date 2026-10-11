@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Bill Creator — Bill Management</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/bills.css">
+  <script src="js/config.js" defer></script>
+  <script src="js/common.js" defer></script>
+  <script src="js/bills.js" defer></script>
+</head>
+<body>
+  <div id="navbar"></div>
+  <main class="app-container bills-page">
+    <section class="page-heading">
+      <p class="eyebrow">BILLING WORKSPACE</p>
+      <h1>Bill Management</h1>
+      <p class="subheading">Create, calculate, view and update bills with their particulars and detail rows.</p>
+    </section>
+
+    <p id="page-status" class="status" role="status" aria-live="polite"></p>
+
+    <section class="panel" id="bill-list-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Saved bills</h2>
+          <p class="muted">Search by bill number, order number, client or biller.</p>
+        </div>
+        <button class="button button-primary" id="new-bill-button" type="button">+ New bill</button>
+      </div>
+      <div class="field-group bill-search">
+        <label for="bill-search">Search bills</label>
+        <input id="bill-search" type="search" placeholder="Bill no., order no., client or biller">
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Bill No.</th><th>Date</th><th>Order No.</th><th>Client</th><th>Biller</th><th>Grand Total</th><th>Actions</th></tr></thead>
+          <tbody id="bills-table-body"><tr><td colspan="7">Loading bills…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" id="bill-editor-panel" hidden>
+      <div class="panel-heading">
+        <div><h2 id="editor-title">Create bill</h2><p class="muted">Fields marked * are required.</p></div>
+        <button class="button button-secondary" id="close-editor-button" type="button">Back to bills</button>
+      </div>
+      <form id="bill-form">
+        <input type="hidden" id="original-bill-no">
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="bill-no">Bill number <span class="required-mark">*</span></label>
+            <input id="bill-no" required maxlength="80" autocomplete="off">
+          </div>
+          <div class="field-group">
+            <label for="order-no">Order number</label>
+            <input id="order-no" maxlength="120">
+          </div>
+          <div class="field-group">
+            <label for="bill-date">Date <span class="required-mark">*</span></label>
+            <input id="bill-date" type="date" required>
+          </div>
+          <div class="field-group">
+            <label for="client-search">Client <span class="required-mark">*</span></label>
+            <input id="client-search" list="clients-options" placeholder="Search company or client name" autocomplete="off" required>
+            <datalist id="clients-options"></datalist>
+            <input id="client-id" type="hidden">
+            <small class="muted" id="client-help">Choose a client from the suggestions.</small>
+          </div>
+          <div class="field-group">
+            <label for="biller-search">Biller <span class="required-mark">*</span></label>
+            <input id="biller-search" list="billers-options" placeholder="Search company or biller name" autocomplete="off" required>
+            <datalist id="billers-options"></datalist>
+            <input id="biller-id" type="hidden">
+            <small class="muted" id="biller-help">Choose a biller from the suggestions.</small>
+          </div>
+        </div>
+
+        <div class="section-subheading">
+          <div><h3>Particulars</h3><p class="muted">Each particular can contain multiple detail rows.</p></div>
+          <button class="button button-secondary" id="add-particular-button" type="button">+ Add particular</button>
+        </div>
+        <div id="particulars-container"></div>
+
+        <div class="calculation-row">
+          <button class="button button-secondary" id="calculate-bill-button" type="button">Calculate bill total</button>
+          <div class="field-group total-field">
+            <label for="total-amount">Total amount (editable)</label>
+            <input id="total-amount" inputmode="decimal" value="0">
+          </div>
+        </div>
+
+        <section class="tax-box">
+          <label class="tax-toggle"><input type="checkbox" id="tax-enabled"> Apply GST</label>
+          <div id="tax-fields" hidden>
+            <div class="form-grid tax-grid">
+              <fieldset class="field-group radio-field">
+                <legend>Supply state</legend>
+                <label><input type="radio" name="supply-state" value="InState" checked> In-state (CGST + SGST)</label>
+                <label><input type="radio" name="supply-state" value="OutState"> Out-of-state (IGST)</label>
+              </fieldset>
+              <div class="field-group">
+                <label for="tax-percentage">Total GST rate (%)</label>
+                <input id="tax-percentage" inputmode="decimal" value="18" min="0" max="100">
+              </div>
+            </div>
+            <div class="form-grid tax-grid" id="in-state-fields">
+              <div class="field-group"><label for="cgst">CGST rate (%)</label><input id="cgst" inputmode="decimal" value="9"></div>
+              <div class="field-group"><label for="cgst-amount">CGST amount (₹)</label><input id="cgst-amount" inputmode="decimal" value="0.00" readonly></div>
+              <div class="field-group"><label for="sgst">SGST rate (%)</label><input id="sgst" inputmode="decimal" value="9"></div>
+              <div class="field-group"><label for="sgst-amount">SGST amount (₹)</label><input id="sgst-amount" inputmode="decimal" value="0.00" readonly></div>
+            </div>
+            <div class="form-grid tax-grid" id="out-state-fields" hidden>
+              <div class="field-group"><label for="igst">IGST rate (%)</label><input id="igst" inputmode="decimal" value="18"></div>
+              <div class="field-group"><label for="igst-amount">IGST amount (₹)</label><input id="igst-amount" inputmode="decimal" value="0.00" readonly></div>
+            </div>
+            <p class="muted tax-note">Tax amounts are calculated from Total Amount × the corresponding GST rate. In-state bills use CGST + SGST; out-of-state bills use IGST. The default split is half the total rate for CGST and SGST.</p>
+          </div>
+        </section>
+
+        <div class="form-grid totals-grid">
+          <div class="field-group"><label for="grand-total">Grand total (editable)</label><input id="grand-total" inputmode="decimal" value="0"></div>
+          <div class="field-group"><label for="amount-in-words">Amount in words (editable)</label><textarea id="amount-in-words" rows="2" placeholder="Rupees ... only"></textarea></div>
+        </div>
+        <div class="form-actions">
+          <button class="button button-primary" id="save-bill-button" type="submit">Save bill</button>
+          <button class="button button-secondary" id="print-bill-button" type="button">Print / Save PDF</button>
+          <button class="button button-secondary" id="cancel-bill-button" type="button">Cancel</button>
+        </div>
+        <p id="form-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

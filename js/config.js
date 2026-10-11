@@ -25,7 +25,14 @@ window.APP_CONFIG = {
     description: "Manage company details, contact information and formatted billing details.",
     path: "billers.html",
     icon: "building-2"
-  }
+  },
+    {
+      id: "bills",
+      title: "Bill Management",
+      description: "Create, calculate, view, edit, print and manage bills.",
+      path: "bills.html",
+      icon: "receipt"
+    }
   ],
 
   CLIENTS: {
