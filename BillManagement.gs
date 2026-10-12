@@ -9,35 +9,84 @@ const BILL_HEADERS_ = [
   "AmountInWords","Tax","TaxPercentage","InState","OutState",
   "CGST","SGST","IGST","GrandTotal","CGSTAmount","SGSTAmount","IGSTAmount","SiteAddress"
 ];
-const BILL_PARTICULAR_HEADERS_ = ["BillNo","ParticularTitle","SNo","Amount"];
+const BILL_PARTICULAR_HEADERS_ = ["BillNo","ParticularTitle","SNo","Amount","HSN Code"];
 const BILL_DETAIL_HEADERS_ = ["BillNo","SNo","Description","Quantity","HSN Code","Rate"];
 
 function billSheet_(name, expectedHeaders) {
   const ss = getSpreadsheet_(); // Reuses the existing helper in Code.gs.
   let sheet = ss.getSheetByName(name);
-  if (!sheet) sheet = ss.insertSheet(name);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+  }
+
   if (sheet.getLastRow() === 0) {
-    sheet.getRange(1,1,1,expectedHeaders.length).setValues([expectedHeaders]);
+    sheet
+      .getRange(1, 1, 1, expectedHeaders.length)
+      .setValues([expectedHeaders]);
+
     sheet.setFrozenRows(1);
-  } else if (name === "Bills" && sheet.getLastColumn() === 15 && expectedHeaders.length >= 18) {
-    const legacy = sheet.getRange(1,1,1,15).getDisplayValues()[0].map(v=>String(v).trim());
-    const expectedLegacy = expectedHeaders.slice(0,15);
-    if (expectedLegacy.every((h,i)=>legacy[i]===h)) {
-      sheet.getRange(1,16,1,expectedHeaders.length-15).setValues([expectedHeaders.slice(15)]);
+
+  } else if (
+    name === "Bills" &&
+    sheet.getLastColumn() === 15 &&
+    expectedHeaders.length >= 18
+  ) {
+    // Migrate the legacy Bills sheet by appending new columns.
+    const legacy = sheet
+      .getRange(1, 1, 1, 15)
+      .getDisplayValues()[0]
+      .map(v => String(v).trim());
+
+    const expectedLegacy = expectedHeaders.slice(0, 15);
+
+    if (expectedLegacy.every((h, i) => legacy[i] === h)) {
+      sheet
+        .getRange(1, 16, 1, expectedHeaders.length - 15)
+        .setValues([expectedHeaders.slice(15)]);
     }
-  } else if (name === "Bills" && sheet.getLastColumn() === expectedHeaders.length-1) {
-    const existing = sheet.getRange(1,1,1,expectedHeaders.length-1).getDisplayValues()[0].map(v=>String(v).trim());
-    if (expectedHeaders.slice(0,-1).every((h,i)=>existing[i]===h)) {
-      sheet.getRange(1,expectedHeaders.length).setValue(expectedHeaders[expectedHeaders.length-1]);
+
+  } else if (
+    sheet.getLastColumn() === expectedHeaders.length - 1
+  ) {
+    // Append the final expected column when all existing headers match.
+    // Supports Bills and BillParticulars migrations.
+    const existing = sheet
+      .getRange(1, 1, 1, expectedHeaders.length - 1)
+      .getDisplayValues()[0]
+      .map(v => String(v).trim());
+
+    const expectedExisting = expectedHeaders.slice(0, -1);
+
+    if (expectedExisting.every((h, i) => existing[i] === h)) {
+      sheet
+        .getRange(1, expectedHeaders.length)
+        .setValue(expectedHeaders[expectedHeaders.length - 1]);
     }
   }
-  const headers = sheet.getRange(1,1,1,Math.max(sheet.getLastColumn(),expectedHeaders.length))
-    .getDisplayValues()[0].map(v=>String(v).trim()).filter((v,i,a)=>i<expectedHeaders.length);
-  if (expectedHeaders.some((h,i)=>headers[i]!==h)) {
-    throw new Error('Incorrect headers in "'+name+'". Expected: '+expectedHeaders.join(", "));
+
+  const columnCount = Math.max(
+    sheet.getLastColumn(),
+    expectedHeaders.length
+  );
+
+  const headers = sheet
+    .getRange(1, 1, 1, columnCount)
+    .getDisplayValues()[0]
+    .map(v => String(v).trim())
+    .slice(0, expectedHeaders.length);
+
+  if (expectedHeaders.some((h, i) => headers[i] !== h)) {
+    throw new Error(
+      'Incorrect headers in "' + name +
+      '". Expected: ' + expectedHeaders.join(", ")
+    );
   }
+
   return sheet;
 }
+
+
 function billRows_(sheet, headers) {
   if (sheet.getLastRow()<2) return [];
   return sheet.getRange(2,1,sheet.getLastRow()-1,headers.length).getValues()
@@ -73,7 +122,17 @@ function getBill_(billNoValue) {
     .sort((a,b)=>Number(a.SNo)-Number(b.SNo));
   const details=billRows_(billSheet_("ParticularDetails",BILL_DETAIL_HEADERS_),BILL_DETAIL_HEADERS_)
     .filter(d=>String(d.BillNo)===billNo);
-  particulars.forEach(p=>{p.details=details.filter(d=>Number(d.SNo)===Number(p.SNo));});
+  particulars.forEach(p=>{p.details=details.filter(d=>Number(d.SNo)===Number(p.SNo));
+  if (!String(p["HSN Code"] || "").trim()) {
+    const oldHsn = p.details.find(
+      d => String(d["HSN Code"] || "").trim()
+    );
+
+    p["HSN Code"] = oldHsn
+      ? String(oldHsn["HSN Code"]).trim()
+      : "";
+  }
+  });
   return json_({success:true,bill,particulars});
 }
 function saveBill_(payload, originalBillNoValue) {
@@ -125,12 +184,12 @@ function saveBill_(payload, originalBillNoValue) {
       const sno=i+1;
       if(seen.has(sno)) throw new Error("Duplicate particular serial number.");
       seen.add(sno);
-      parts.push([billNo,title,sno,billNum_(p.Amount,"Particular amount",false)]);
+      parts.push([billNo,title,sno,billNum_(p.Amount,"Particular amount",false),billText_(p["HSN Code"], 80, "HSN Code")]);
       const rows=Array.isArray(p.details)?p.details:[];
       if(rows.length>1000) throw new Error("Too many detail rows in a particular.");
       rows.forEach(d=>details.push([
         billNo,sno,billText_(d.Description,1000,"Description"),
-        billText_(d.Quantity,100,"Quantity"),billText_(d["HSN Code"],80,"HSN Code"),
+        billText_(d.Quantity,100,"Quantity"),
         billText_(d.Rate,100,"Rate")
       ]));
     });

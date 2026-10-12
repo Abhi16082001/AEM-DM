@@ -92,9 +92,9 @@
 .invoice-total-value { text-align:center; white-space:nowrap; }
 .invoice-grand-total td { font-weight:800; }
 .invoice-words-row td { min-height:38px; vertical-align:top; }
-.invoice-for-biller { text-align:right; }
+/* .invoice-for-biller { text-align:right; } */
 .invoice-footer-row { height:125px; vertical-align:top!important; }
-.invoice-footer-row > td { position:relative; height:125px; vertical-align:top; }
+/* .invoice-footer-row > td { position:relative; height:125px; vertical-align:top; } */
 .invoice-terms { position:absolute; left:8px; bottom:8px; }
 .invoice-signatory { position:absolute; right:8px; bottom:8px; }
 @media(max-width:760px) {
@@ -104,4 +104,116 @@
 }
 @media print {
   .invoice-view-actions, #invoice-status { display:none!important; }
+}
+
+.invoice-words-grand-row td {
+  vertical-align: top;
+  padding: 7px 6px;
+}
+
+.invoice-words-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.5;
+}
+
+.invoice-grand-label {
+  text-align: right;
+  font-weight: 800;
+  vertical-align: middle !important;
+}
+
+.invoice-grand-value {
+  font-weight: 800;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
+
+/* .invoice-signature-heading-row td {
+  padding: 8px 6px;
+  vertical-align: top;
+} */
+
+.invoice-for-biller {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.invoice-footer-row td {
+  height: 110px;
+  vertical-align: top !important;
+  position: relative;
+}
+
+.invoice-terms-cell {
+  padding: 8px 6px;
+  line-height: 1.5;
+}
+
+.invoice-signatory-cell {
+  text-align: right;
+  vertical-align: bottom !important;
+  padding: 8px 6px;
+}
+
+.invoice-signature-heading-row {
+  width: 100%;
+}
+
+.invoice-signature-heading-row td {
+  padding: 8px 6px;
+  vertical-align: top;
+}
+
+.invoice-signature-heading-row td:first-child {
+  text-align: left;
+}
+
+.invoice-signature-heading-row .invoice-for-biller {
+  text-align: right;
+}
+
+
+.invoice-footer-container-row > td {
+  padding: 0 !important;
+  height: 0;
+}
+
+.invoice-footer-container {
+  position: relative;
+  width: 100%;
+  height: 125px;
+  box-sizing: border-box;
+  padding: 8px;
+}
+
+.invoice-footer-top-left {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+.invoice-footer-top-right {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  text-align: right;
+  max-width: 48%;
+  overflow-wrap: anywhere;
+}
+
+.invoice-footer-bottom-left {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  max-width: 60%;
+  line-height: 1.5;
+}
+
+.invoice-footer-bottom-right {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  text-align: right;
 }

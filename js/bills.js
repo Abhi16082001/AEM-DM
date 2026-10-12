@@ -179,7 +179,7 @@ function sanitizeHtml(value) {
       const rates=[...new Set(details.map(d=>String(d.Rate||"").trim()).filter(Boolean))].join("\n");
       return details.map((d,detailIndex)=>`<tr>
         ${detailIndex===0?`<td class="invoice-sno" rowspan="${details.length}">${index+1}.</td><td class="invoice-particular" rowspan="${details.length}"><strong>${esc(p.ParticularTitle||"")}</strong>${details.map(detail=>`<div class="invoice-description">${esc(detail.Description||"")}</div>`).join("")}</td>`:""}
-        <td class="invoice-hsn">${esc(d["HSN Code"]||"")}</td>
+       ${detailIndex === 0 ? `<td class="invoice-hsn" rowspan="${details.length}">${esc(p["HSN Code"] || "")}</td>`: ""}
         <td class="invoice-quantity">${esc(d.Quantity||"")}</td>
         ${detailIndex===0?`<td class="invoice-rate" rowspan="${details.length}">${esc(rates)}</td><td class="invoice-amount" rowspan="${details.length}">₹ ${esc(fmt(p.Amount))}</td>`:""}
       </tr>`).join("");
@@ -249,9 +249,43 @@ function sanitizeHtml(value) {
         <tbody>${invoiceDetailsHtml(particulars)}
           <tr class="invoice-total-row"><td></td><td colspan="4" class="invoice-total-label">Total Amount ₹</td><td class="invoice-total-value">${esc(fmt(bill.TotalAmount))}</td></tr>
           ${invoiceTaxRows(bill)}
-          <tr class="invoice-total-row invoice-grand-total"><td colspan="5" class="invoice-total-label">Grand Total ₹</td><td class="invoice-total-value">${esc(fmt(bill.GrandTotal))}</td></tr>
-          <tr class="invoice-words-row"><td colspan="3"><strong>Rupees:</strong> ${esc(amountWords)}</td><td colspan="3" class="invoice-for-biller"><strong>For ${esc(billerName)}</strong></td></tr>
-          <tr class="invoice-footer-row"><td colspan="6"><div><strong>E. &amp; O.E.</strong></div><div class="invoice-terms"><strong>Terms &amp; Conditions:</strong><br>All disputes subject to Delhi Jurisdiction only.</div><div class="invoice-signatory">Authorized Signatory</div></td></tr>
+       
+<tr class="invoice-words-grand-row">
+  <td colspan="4" class="invoice-words-cell">
+    <strong>Rupees:</strong>
+    ${esc(amountWords || "")}
+  </td>
+  <td class="invoice-total-label invoice-grand-label">Grand Total ₹</td>
+  <td class="invoice-total-value invoice-grand-value">
+    ${esc(fmt(bill.GrandTotal))}
+  </td>
+</tr>
+
+
+
+<tr class="invoice-footer-container-row">
+  <td colspan="6">
+    <div class="invoice-footer-container">
+      <div class="invoice-footer-top-left">E. &amp; O.E.</div>
+
+      <div class="invoice-footer-top-right">
+        For ${esc(billerName)}
+      </div>
+
+      <div class="invoice-footer-bottom-left">
+        <strong>Terms &amp; Conditions:</strong>
+        <br>
+        All disputes subject to Delhi Jurisdiction only.
+      </div>
+
+      <div class="invoice-footer-bottom-right">
+        Authorized Signatory
+      </div>
+    </div>
+  </td>
+</tr>
+
+
         </tbody>
       </table>`;
     $("invoice-document").innerHTML=html;
@@ -305,6 +339,7 @@ function sanitizeHtml(value) {
       <div class="particular-head">
         <div class="field-group"><label>Particular title</label><input class="particular-title" maxlength="250" required value="${esc(data.ParticularTitle||"")}"></div>
         <div class="field-group"><label>SNo (auto)</label><input class="particular-sno" value="${esc(displaySNo)}" readonly></div>
+        <div class="field-group"><label>HSN Code</label> <input class="particular-hsn" maxlength="80" value="${esc(data["HSN Code"] || "")}"></div>
         <div class="particular-remove"><button type="button" class="button button-danger button-small remove-particular">Remove particular</button></div>
         <div class="field-group"><label>Particular amount (editable)</label><input class="particular-amount" inputmode="decimal" value="${esc(data.Amount??"0")}"></div>
         <div class="row-actions"><button type="button" class="button button-secondary button-small calculate-particular">Calculate amount</button><button type="button" class="button button-secondary button-small add-detail">+ Add detail row</button></div>
@@ -327,8 +362,7 @@ function sanitizeHtml(value) {
     const row=document.createElement("div");row.className="detail-row";
     row.innerHTML=`
       <div class="field-group"><label>Description</label><input class="detail-description" maxlength="1000" value="${esc(data.Description||"")}"></div>
-      <div class="field-group"><label>Quantity</label><input class="detail-quantity" placeholder="e.g. 5.2 trips" value="${esc(data.Quantity||"")}"></div>
-      <div class="field-group"><label>HSN Code</label><input class="detail-hsn" maxlength="80" value="${esc(data["HSN Code"]||"")}"></div>
+      <div class="field-group"><label>Quantity</label><input class="detail-quantity" placeholder="e.g. 5.2 trips" value="${esc(data.Quantity||"")}"></div>      
       <div class="field-group"><label>Rate</label><input class="detail-rate" placeholder="e.g. Rs. 6,000/trip" value="${esc(data.Rate||"")}"></div>
       <div class="row-actions"><button type="button" class="button button-danger button-small remove-detail">Remove</button></div>`;
     container.appendChild(row);
@@ -415,11 +449,11 @@ function sanitizeHtml(value) {
     const particulars=[...$("particulars-container").querySelectorAll(".particular-card")].map((card,i)=>({
       ParticularTitle:card.querySelector(".particular-title").value.trim(),
       SNo:i+1,
+      "HSN Code": card.querySelector(".particular-hsn").value.trim(),
       Amount:String(money(card.querySelector(".particular-amount").value)),
       details:[...card.querySelectorAll(".detail-row")].map(row=>({
         Description:row.querySelector(".detail-description").value.trim(),
         Quantity:row.querySelector(".detail-quantity").value.trim(),
-        "HSN Code":row.querySelector(".detail-hsn").value.trim(),
         Rate:row.querySelector(".detail-rate").value.trim()
       }))
     }));
