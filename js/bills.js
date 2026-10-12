@@ -36,6 +36,16 @@
     $("billers-options").innerHTML=state.billers.map(b=>`<option value="${esc(billerLabel(b))}"></option>`).join("");
     renderBills();
   }
+function sanitizeHtml(value) {
+  return DOMPurify.sanitize(String(value || ""), {
+    ALLOWED_TAGS: [
+      "b", "strong", "i", "em", "u", "br",
+      "p", "div", "span", "ul", "ol", "li"
+    ],
+    ALLOWED_ATTR: ["style"]
+  });
+}
+
   function resolveChoice(inputId, hiddenId, records, labelFn) {
     const text=$(inputId).value.trim();
     const match=records.find(r=>labelFn(r)===text);
@@ -62,9 +72,9 @@
         <td>${esc(clientLabel(c||{Name:b.ClientId}))}</td><td>${esc(billerLabel(bi||{Name:b.BillerId}))}</td>
         <td>₹${fmt(b.TotalAmount)}</td><td>₹${fmt(b.GrandTotal)}</td>
         <td class="action-cell">
-          <button class="button button-secondary button-small" data-action="view" data-bill="${esc(b.BillNo)}">View</button>
-          <button class="button button-secondary button-small" data-action="edit" data-bill="${esc(b.BillNo)}">Edit</button>
-          <button class="button button-danger button-small" data-action="delete" data-bill="${esc(b.BillNo)}">Delete</button>
+          <button class="button button-secondary button-small" data-action="view" data-bill="${esc(b.BillNo)}">⌕</button>
+          <button class="button button-secondary button-small" data-action="edit" data-bill="${esc(b.BillNo)}">✎</button>
+          <button class="button button-danger button-small" data-action="delete" data-bill="${esc(b.BillNo)}">⌫</button>
         </td></tr>`;
     }).join("");
   }
@@ -218,8 +228,8 @@
       </div>
       <header class="invoice-company">
         <h1>${esc(billerName)}</h1>
-        ${billerDescription?`<p>${esc(billerDescription)}</p>`:""}
-        ${billerAddress?`<p class="invoice-company-address">${esc(billerAddress)}</p>`:""}
+        ${billerDescription?`<p>${sanitizeHtml(billerDescription)}</p>`:""}
+        ${billerAddress?`<p class="invoice-company-address">${sanitizeHtml(billerAddress)}</p>`:""}
       </header>
       <section class="invoice-party-grid">
         <div class="invoice-client-details">

@@ -2,13 +2,12 @@
 window.APP_CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbwMXVJbB9p1gN97r1bFDmv7pHpjdy4txkamzE4odFA1jhejuo-UUbu_i9v-ohrmcJRI/exec",
 
-  APP_NAME: "Bill Creator",
+  APP_NAME: "Anil Earth Mover",
   SESSION_TOKEN_KEY: "billCreatorToken",
   SESSION_EXPIRY_KEY: "billCreatorTokenExpiresAt",
 
   NAV_LINKS: [
-    { label: "Home", path: "home.html" },
-    // { label: "Client Management", path: "clients.html" }
+    { label: "Home", path: "home.html" }
   ],
 
   MENU_CARDS: [
@@ -17,21 +16,24 @@ window.APP_CONFIG = {
       title: "Client Management",
       description: "Create, view, edit and manage your clients.",
       path: "clients.html",
-      icon: "users"
+      icon: "♧",
+      color: "#f2b354"
     },
      {
     id: "billers",
     title: "Biller Management",
     description: "Manage company details, contact information and formatted billing details.",
     path: "billers.html",
-    icon: "building-2"
+    icon: "▦",
+    color: "#66afec"
   },
     {
       id: "bills",
       title: "Bill Management",
       description: "Create, calculate, view, edit, print and manage bills.",
       path: "bills.html",
-      icon: "receipt"
+      icon: "▦",
+      color: "#7aec7e"
     }
   ],
 
@@ -65,15 +67,7 @@ window.APP_CONFIG = {
         required: true,
         maxLength: 1000
       },
-      {
-        name: "SiteAddress",
-        label: "Site Address",
-        type: "textarea",
-        visibleInTable: false,
-        editable: true,
-        required: false,
-        maxLength: 1000
-      },
+
       {
         name: "GST",
         label: "GST Number",

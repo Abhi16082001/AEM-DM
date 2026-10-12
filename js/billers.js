@@ -295,16 +295,16 @@
         `).join("")}
         <td class="table-actions">
           <button type="button" data-action="view"
-                  data-index="${index}" class="btn btn-small">
-            View
+                  data-index="${index}" class="button button-secondary">
+            ⌕
           </button>
           <button type="button" data-action="edit"
-                  data-index="${index}" class="btn btn-small">
-            Edit
+                  data-index="${index}" class="button button-secondary button-small">
+            ✎
           </button>
           <button type="button" data-action="delete"
-                  data-index="${index}" class="btn btn-small btn-danger">
-            Delete
+                  data-index="${index}" class="button btn btn-danger">
+            ⌫
           </button>
         </td>
       </tr>

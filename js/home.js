@@ -8,9 +8,9 @@
   const cards = window.APP_CONFIG.MENU_CARDS || [];
 
   container.innerHTML = cards.map(card => `
-    <a class="menu-card" href="${window.App.escapeHTML(card.path)}">
+    <a class="menu-card" href="${window.App.escapeHTML(card.path)}" style="background-color:${window.App.escapeHTML(card.color)};">
       <div class="menu-card-icon" aria-hidden="true">
-        ${card.icon === "users" ? "♧" : "▦"}
+        ${card.icon}
       </div>
 
       <h2>${window.App.escapeHTML(card.title)}</h2>

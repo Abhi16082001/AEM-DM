@@ -113,7 +113,7 @@
               data-action="edit" data-id="${window.App.escapeHTML(client.Id)}"
               aria-label="Edit client" title="Edit">✎</button>
 
-            <button class="icon-button danger" type="button"
+            <button class="icon-button danger btn btn-danger" type="button"
               data-action="delete" data-id="${window.App.escapeHTML(client.Id)}"
               aria-label="Delete client" title="Delete">⌫</button>
           </div>

@@ -6,8 +6,8 @@
   --ink: #172033;
   --muted: #687386;
   --surface: #ffffff;
-  --background: #f4f6fb;
-  --border: #e2e7f0;
+  --background: #e0d7ff;
+  --border: #809dd4;
   --danger: #dc2626;
   --success: #15803d;
   --radius: 16px;
@@ -249,8 +249,11 @@ textarea {
   gap: 28px;
   min-height: 76px;
   padding: 12px max(24px, calc((100% - 1200px) / 2));
-  background: #fff;
   border-bottom: 1px solid var(--border);
+    background: rgba(101, 85, 119, 0.639);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .navbar-brand {
@@ -265,6 +268,8 @@ textarea {
 
 .nav-links {
   display: flex;
+  flex-direction: row;
+  justify-content:center;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
@@ -274,7 +279,7 @@ textarea {
 .nav-links a {
   padding: 9px 12px;
   border-radius: 9px;
-  color: #586277;
+  color: #393d48;
   font-size: 13px;
   font-weight: 650;
   text-decoration: none;
@@ -331,16 +336,24 @@ textarea {
   }
 
   .menu-card {
-    padding: 16px;
+    padding: 12px !important;
     border-radius: 15px;
   }
 
   .menu-card h2 {
-    font-size: 16px;
+    font-size: 14px !important;
   }
 
   .menu-card p {
-    font-size: 12px;
+    font-size: 10px !important;
+  }
+  .menu-card-link {
+display:none !important;
+  }
+  .menu-card-icon{
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 20px !important;
   }
 }
 
@@ -485,8 +498,8 @@ td {
 }
 
 th {
-  color: #4b5568;
-  background: #f8f9fc;
+  color: #414a5b;
+  background: #dddde4;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .4px;

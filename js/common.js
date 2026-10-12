@@ -92,7 +92,7 @@
     container.innerHTML = `
       <header class="navbar">
         <a class="navbar-brand" href="home.html">
-          <span class="brand-mark small">BC</span>
+          <span class="brand-mark small">AEM</span>
           <span>${escapeHTML(config.APP_NAME)}</span>
         </a>
 
