@@ -239,7 +239,7 @@ function sanitizeHtml(value) {
           <p><strong>GSTIN No.:</strong> ${esc(clientGst)}</p>
         </div>
         <div class="invoice-bill-meta">
-          <p><strong>Serial No.</strong> ${esc(bill.BillNo||"")}</p>
+          <p><strong>Bill No.</strong> ${esc(bill.BillNo||"")}</p>
           <p><strong>Order No.</strong> ${esc(bill.OrderNo||"")}</p>
           <p class="invoice-date"><strong>Date:</strong> ${esc(displayDate(bill.Date))}</p>
         </div>
@@ -266,10 +266,10 @@ function sanitizeHtml(value) {
 <tr class="invoice-footer-container-row">
   <td colspan="6">
     <div class="invoice-footer-container">
-      <div class="invoice-footer-top-left">E. &amp; O.E.</div>
+      <div class="invoice-footer-top-left"><b>E. &amp; O.E.</b></div>
 
       <div class="invoice-footer-top-right">
-        For ${esc(billerName)}
+        <b>For ${esc(billerName)}</b>
       </div>
 
       <div class="invoice-footer-bottom-left">

@@ -10,7 +10,9 @@ const BILL_HEADERS_ = [
   "CGST","SGST","IGST","GrandTotal","CGSTAmount","SGSTAmount","IGSTAmount","SiteAddress"
 ];
 const BILL_PARTICULAR_HEADERS_ = ["BillNo","ParticularTitle","SNo","Amount","HSN Code"];
-const BILL_DETAIL_HEADERS_ = ["BillNo","SNo","Description","Quantity","HSN Code","Rate"];
+// HSN belongs to a bill particular, not an individual detail row. Detail SNo
+// is numbered within a particular; ParticularSNo identifies its parent.
+const BILL_DETAIL_HEADERS_ = ["BillNo","ParticularSNo","SNo","Description","Quantity","Rate"];
 
 function billSheet_(name, expectedHeaders) {
   const ss = getSpreadsheet_(); // Reuses the existing helper in Code.gs.
@@ -18,6 +20,10 @@ function billSheet_(name, expectedHeaders) {
 
   if (!sheet) {
     sheet = ss.insertSheet(name);
+  }
+
+  if (name === "ParticularDetails" && sheet.getLastRow() > 0) {
+    migrateParticularDetailsSheet_(sheet, expectedHeaders);
   }
 
   if (sheet.getLastRow() === 0) {
@@ -86,6 +92,75 @@ function billSheet_(name, expectedHeaders) {
   return sheet;
 }
 
+/**
+ * Converts the two legacy ParticularDetails layouts to the current layout:
+ *   BillNo, ParticularSNo, SNo, Description, Quantity, Rate
+ *
+ * Older versions stored the parent particular serial number in SNo, and
+ * optionally had an obsolete HSN Code column. The conversion keeps the
+ * existing detail rows, makes that value ParticularSNo, and assigns a
+ * one-based detail SNo within each bill/particular pair.
+ */
+function migrateParticularDetailsSheet_(sheet, expectedHeaders) {
+  const lastColumn = sheet.getLastColumn();
+  if (!lastColumn) return;
+
+  const headers = sheet.getRange(1, 1, 1, lastColumn)
+    .getDisplayValues()[0]
+    .map(value => String(value).trim());
+
+  if (expectedHeaders.every((header, index) => headers[index] === header) &&
+      headers.length === expectedHeaders.length) {
+    return;
+  }
+
+  const legacyHeaders = [
+    ["BillNo", "SNo", "Description", "Quantity", "Rate"],
+    ["BillNo", "SNo", "Description", "Quantity", "HSN Code", "Rate"]
+  ];
+  const legacy = legacyHeaders.find(candidate =>
+    candidate.length === headers.length &&
+    candidate.every((header, index) => headers[index] === header)
+  );
+
+  if (!legacy) return;
+
+  const rows = sheet.getLastRow() < 2
+    ? []
+    : sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const indexOf = header => headers.indexOf(header);
+  const detailCounts = {};
+  const migratedRows = rows
+    .filter(row => row.some(value => value !== "" && value !== null))
+    .map(row => {
+      const billNo = row[indexOf("BillNo")];
+      const particularSNo = row[indexOf("SNo")];
+      const key = String(billNo) + "\u0000" + String(particularSNo);
+      detailCounts[key] = (detailCounts[key] || 0) + 1;
+
+      return [
+        billNo,
+        particularSNo,
+        detailCounts[key],
+        row[indexOf("Description")],
+        row[indexOf("Quantity")],
+        row[indexOf("Rate")]
+      ];
+    });
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, expectedHeaders.length)
+    .setValues([expectedHeaders]);
+  sheet.setFrozenRows(1);
+
+  if (migratedRows.length) {
+    sheet.getRange(2, 1, migratedRows.length, expectedHeaders.length)
+      .setNumberFormat("@");
+    sheet.getRange(2, 1, migratedRows.length, expectedHeaders.length)
+      .setValues(migratedRows);
+  }
+}
+
 
 function billRows_(sheet, headers) {
   if (sheet.getLastRow()<2) return [];
@@ -122,16 +197,10 @@ function getBill_(billNoValue) {
     .sort((a,b)=>Number(a.SNo)-Number(b.SNo));
   const details=billRows_(billSheet_("ParticularDetails",BILL_DETAIL_HEADERS_),BILL_DETAIL_HEADERS_)
     .filter(d=>String(d.BillNo)===billNo);
-  particulars.forEach(p=>{p.details=details.filter(d=>Number(d.SNo)===Number(p.SNo));
-  if (!String(p["HSN Code"] || "").trim()) {
-    const oldHsn = p.details.find(
-      d => String(d["HSN Code"] || "").trim()
-    );
-
-    p["HSN Code"] = oldHsn
-      ? String(oldHsn["HSN Code"]).trim()
-      : "";
-  }
+  particulars.forEach(p=>{
+    p.details=details
+      .filter(d=>Number(d.ParticularSNo)===Number(p.SNo))
+      .sort((a,b)=>Number(a.SNo)-Number(b.SNo));
   });
   return json_({success:true,bill,particulars});
 }
@@ -187,8 +256,8 @@ function saveBill_(payload, originalBillNoValue) {
       parts.push([billNo,title,sno,billNum_(p.Amount,"Particular amount",false),billText_(p["HSN Code"], 80, "HSN Code")]);
       const rows=Array.isArray(p.details)?p.details:[];
       if(rows.length>1000) throw new Error("Too many detail rows in a particular.");
-      rows.forEach(d=>details.push([
-        billNo,sno,billText_(d.Description,1000,"Description"),
+      rows.forEach((d, detailIndex)=>details.push([
+        billNo,sno,detailIndex+1,billText_(d.Description,1000,"Description"),
         billText_(d.Quantity,100,"Quantity"),
         billText_(d.Rate,100,"Rate")
       ]));
@@ -268,7 +337,7 @@ function migrateBillSerialNumbersToOneBased_() {
     const partBillCol = BILL_PARTICULAR_HEADERS_.indexOf("BillNo")+1;
     const partSNoCol = BILL_PARTICULAR_HEADERS_.indexOf("SNo")+1;
     const detailBillCol = BILL_DETAIL_HEADERS_.indexOf("BillNo")+1;
-    const detailSNoCol = BILL_DETAIL_HEADERS_.indexOf("SNo")+1;
+    const detailParticularSNoCol = BILL_DETAIL_HEADERS_.indexOf("ParticularSNo")+1;
     const partLast = partSheet.getLastRow();
     if (partLast >= partStart) {
       const values = partSheet.getRange(partStart,1,partLast-1,BILL_PARTICULAR_HEADERS_.length).getDisplayValues();
@@ -282,8 +351,8 @@ function migrateBillSerialNumbersToOneBased_() {
     if (detailLast >= 2) {
       const values = detailSheet.getRange(2,1,detailLast-1,BILL_DETAIL_HEADERS_.length).getDisplayValues();
       values.forEach((row,i)=>{
-        if (String(row[detailBillCol-1])===billNo && row[detailSNoCol-1]!=="") {
-          detailSheet.getRange(i+2,detailSNoCol).setValue(Number(row[detailSNoCol-1])+1);
+        if (String(row[detailBillCol-1])===billNo && row[detailParticularSNoCol-1]!=="") {
+          detailSheet.getRange(i+2,detailParticularSNoCol).setValue(Number(row[detailParticularSNoCol-1])+1);
         }
       });
     }

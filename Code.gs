@@ -94,6 +94,18 @@ function doPost(e) {
       case "deleteBiller":
         return deleteBiller_(request.id);
 
+      case "listBills":
+        return listBills_();
+
+      case "getBill":
+        return getBill_(request.billNo);
+
+      case "saveBill":
+        return saveBill_(request.data, request.originalBillNo);
+
+      case "deleteBill":
+        return deleteBill_(request.billNo);
+
       default:
         return json_({ success: false, message: "Unsupported action." });
     }
