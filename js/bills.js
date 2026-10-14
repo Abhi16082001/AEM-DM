@@ -176,13 +176,33 @@ function sanitizeHtml(value) {
   function invoiceDetailsHtml(particulars) {
     return particulars.map((p,index)=>{
       const details=Array.isArray(p.details)&&p.details.length?p.details:[{}];
-      const rates=[...new Set(details.map(d=>String(d.Rate||"").trim()).filter(Boolean))].join("\n");
-      return details.map((d,detailIndex)=>`<tr>
-        ${detailIndex===0?`<td class="invoice-sno" rowspan="${details.length}">${index+1}.</td><td class="invoice-particular" rowspan="${details.length}"><strong>${esc(p.ParticularTitle||"")}</strong>${details.map(detail=>`<div class="invoice-description">${esc(detail.Description||"")}</div>`).join("")}</td>`:""}
-       ${detailIndex === 0 ? `<td class="invoice-hsn" rowspan="${details.length}">${esc(p["HSN Code"] || "")}</td>`: ""}
-        <td class="invoice-quantity">${esc(d.Quantity||"")}</td>
-        ${detailIndex===0?`<td class="invoice-rate" rowspan="${details.length}">${esc(rates)}</td><td class="invoice-amount" rowspan="${details.length}">₹ ${esc(fmt(p.Amount))}</td>`:""}
-      </tr>`).join("");
+      // Merge only consecutive identical rates; a repeated rate after a
+      // different one is deliberately rendered as a separate cell.
+      const rateGroups=[];
+      details.forEach((detail,detailIndex)=>{
+        const rate=String(detail.Rate||"").trim();
+        const previous=rateGroups[rateGroups.length-1];
+        if(previous && previous.rate===rate) previous.length++;
+        else rateGroups.push({rate,start:detailIndex,length:1});
+      });
+      const rateGroupAtStart=new Map(rateGroups.map(group=>[group.start,group]));
+      const titleRow=`<tr>
+        <td class="invoice-sno" rowspan="${details.length+1}">${index+1}.</td>
+        <td class="invoice-particular"><strong>${esc(p.ParticularTitle||"")}</strong></td>
+        <td class="invoice-hsn" rowspan="${details.length+1}">${esc(p["HSN Code"] || "")}</td>
+        <td class="invoice-quantity" aria-hidden="true" style="border-bottom:hidden;"></td>
+        <td class="invoice-rate" aria-hidden="true" style="border-bottom:hidden;"></td>
+        <td class="invoice-amount" rowspan="${details.length+1}">₹ ${esc(fmt(p.Amount))}</td>
+      </tr>`;
+      const detailRows=details.map((d,detailIndex)=>{
+        const rateGroup=rateGroupAtStart.get(detailIndex);
+        return `<tr>
+          <td class="invoice-particular"><div class="invoice-description">${esc(d.Description||"")}</div></td>
+          <td class="invoice-quantity">${esc(d.Quantity||"")}</td>      
+          ${rateGroup?`<td class="invoice-rate" rowspan="${rateGroup.length}">${esc(rateGroup.rate)}</td>`:""}
+        </tr>`;
+      }).join("");
+      return titleRow+detailRows;
     }).join("");
   }
   function invoiceTaxRows(bill) {
