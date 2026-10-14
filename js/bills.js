@@ -190,8 +190,8 @@ function sanitizeHtml(value) {
         <td class="invoice-sno" rowspan="${details.length+1}">${index+1}.</td>
         <td class="invoice-particular"><strong>${esc(p.ParticularTitle||"")}</strong></td>
         <td class="invoice-hsn" rowspan="${details.length+1}">${esc(p["HSN Code"] || "")}</td>
-        <td class="invoice-quantity" aria-hidden="true" style="border-bottom:hidden;"></td>
-        <td class="invoice-rate" aria-hidden="true" style="border-bottom:hidden;"></td>
+        <td class="invoice-quantity" aria-hidden="true" style="border-bottom-color:#aaaaaa;"></td>
+        <td class="invoice-rate" aria-hidden="true" style="border-bottom-color:#aaaaaa;"></td>
         <td class="invoice-amount" rowspan="${details.length+1}">₹ ${esc(fmt(p.Amount))}</td>
       </tr>`;
       const detailRows=details.map((d,detailIndex)=>{
@@ -259,7 +259,7 @@ function sanitizeHtml(value) {
         <div class="invoice-client-details">
           <p><strong>Name:</strong> ${esc(clientName)}</p>
           <p><strong>Address:</strong> ${esc(clientAddress)}</p>
-          <p><strong>Site Address:</strong> ${esc(siteAddress)}</p>
+          ${siteAddress?`<p><strong>Site Address:</strong> ${esc(siteAddress)}</p>`:""}
           <p><strong>GSTIN No.:</strong> ${esc(clientGst)}</p>
         </div>
         <div class="invoice-bill-meta">
@@ -337,7 +337,7 @@ function sanitizeHtml(value) {
       const element=$("invoice-document");
       const filename=`Bill-${String(state.viewBillNo||"invoice").replace(/[^a-zA-Z0-9_-]/g,"_")}.pdf`;
       await window.html2pdf().set({
-        margin:[8,8,8,8],filename,
+        margin:[5,5,5,5],filename,
         image:{type:"jpeg",quality:0.98},
         html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",scrollY:0},
         jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
