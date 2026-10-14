@@ -107,6 +107,8 @@ function doPost(e) {
         return deleteBill_(request.billNo);
 
       default:
+        const masterDataResponse = handleMasterDataAction_(request);
+        if (masterDataResponse) return masterDataResponse;
         return json_({ success: false, message: "Unsupported action." });
     }
   } catch (error) {

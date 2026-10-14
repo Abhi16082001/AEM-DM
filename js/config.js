@@ -34,7 +34,11 @@ window.APP_CONFIG = {
       path: "bills.html",
       icon: "▦",
       color: "#7aec7e"
-    }
+    },
+    { id: "vehicle-types", title: "Vehicle Types", description: "Add and maintain vehicle types.", path: "master-data.html?feature=vehicleTypes", icon: "V", color: "#d9a7f5" },
+    { id: "vehicles", title: "Vehicles", description: "Add and maintain vehicles and their types.", path: "master-data.html?feature=vehicles", icon: "V", color: "#f3a98b" },
+    { id: "staff-types", title: "Staff Types", description: "Add and maintain staff types.", path: "master-data.html?feature=staffTypes", icon: "S", color: "#9cd7cf" },
+    { id: "staff", title: "Staff", description: "Add and maintain staff details.", path: "master-data.html?feature=staff", icon: "S", color: "#f0d680" }
   ],
 
   CLIENTS: {
@@ -176,6 +180,37 @@ BILLERS: {
     }
   ],
   ACTIONS: ["view", "edit", "delete"]
-}
+},
+
+  MASTER_DATA: {
+    vehicleTypes: {
+      resource: "vehicleTypes", title: "Vehicle Type Management", singular: "Vehicle Type", sheetName: "Types", primaryKey: "Vehicle Type Name",
+      fields: [
+        { name: "Vehicle Type Name", label: "Vehicle Type Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 }
+      ]
+    },
+    vehicles: {
+      resource: "vehicles", title: "Vehicle Management", singular: "Vehicle", sheetName: "Vehicles", primaryKey: "Vehicle No",
+      fields: [
+        { name: "Vehicle No", label: "Vehicle No", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 80 },
+        { name: "Type", label: "Type", type: "lookup", lookupResource: "vehicleTypes", lookupField: "Vehicle Type Name", required: true, editable: true, visibleInTable: true, maxLength: 150 }
+      ]
+    },
+    staffTypes: {
+      resource: "staffTypes", title: "Staff Type Management", singular: "Staff Type", sheetName: "Types", primaryKey: "Staff Type Name",
+      fields: [
+        { name: "Staff Type Name", label: "Staff Type Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 }
+      ]
+    },
+    staff: {
+      resource: "staff", title: "Staff Management", singular: "Staff Member", sheetName: "Staff", primaryKey: "Id", autoId: true,
+      fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
+        { name: "Name", label: "Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Type", label: "Type", type: "lookup", lookupResource: "staffTypes", lookupField: "Staff Type Name", required: true, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
+      ]
+    }
+  }
   
 };
