@@ -186,7 +186,7 @@ function sanitizeHtml(value) {
         else rateGroups.push({rate,start:detailIndex,length:1});
       });
       const rateGroupAtStart=new Map(rateGroups.map(group=>[group.start,group]));
-      const titleRow=`<tr>
+      const titleRow=`<tr class="invoice-title-row">
         <td class="invoice-sno" rowspan="${details.length+1}">${index+1}.</td>
         <td class="invoice-particular"><strong>${esc(p.ParticularTitle||"")}</strong></td>
         <td class="invoice-hsn" rowspan="${details.length+1}">${esc(p["HSN Code"] || "")}</td>
@@ -196,10 +196,14 @@ function sanitizeHtml(value) {
       </tr>`;
       const detailRows=details.map((d,detailIndex)=>{
         const rateGroup=rateGroupAtStart.get(detailIndex);
-        return `<tr>
+        const isLastDetail=detailIndex===details.length-1;
+        const rateClass=rateGroup&&rateGroup.start+rateGroup.length===details.length
+          ? "invoice-rate invoice-detail-final-rate"
+          : "invoice-rate";
+        return `<tr class="invoice-detail-row${isLastDetail?" invoice-detail-last-row":""}">
           <td class="invoice-particular"><div class="invoice-description">${esc(d.Description||"")}</div></td>
           <td class="invoice-quantity">${esc(d.Quantity||"")}</td>      
-          ${rateGroup?`<td class="invoice-rate" rowspan="${rateGroup.length}">${esc(rateGroup.rate)}</td>`:""}
+          ${rateGroup?`<td class="${rateClass}" rowspan="${rateGroup.length}">${esc(rateGroup.rate)}</td>`:""}
         </tr>`;
       }).join("");
       return titleRow+detailRows;

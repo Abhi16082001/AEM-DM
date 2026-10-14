@@ -87,6 +87,20 @@
 .invoice-particular { text-align:center; white-space:pre-line; vertical-align:top!important; }
 .invoice-particular strong { display:block; padding:0 0 4px; }
 .invoice-rate { text-align:center; white-space:pre-line; }
+.invoice-title-row .invoice-particular { border-bottom-color:#aaa; padding-bottom:2px; }
+.invoice-title-row .invoice-particular strong { padding-bottom:0; }
+.invoice-detail-row .invoice-particular,
+.invoice-detail-row .invoice-quantity,
+.invoice-detail-row .invoice-rate {
+  border-top-color:#aaa;
+  border-bottom-color:#aaa;
+  padding-top:2px;
+  padding-bottom:2px;
+}
+.invoice-detail-row .invoice-particular { border-left-color:#222; border-right-color:#222; }
+.invoice-detail-last-row .invoice-particular,
+.invoice-detail-last-row .invoice-quantity,
+.invoice-detail-row .invoice-detail-final-rate { border-bottom-color:#222; }
 .invoice-amount { text-align:center; }
 .invoice-total-row td { padding:5px 6px; }
 .invoice-total-label { text-align:right; font-weight:700; }
