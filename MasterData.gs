@@ -3,10 +3,17 @@
  * and Staff. Keep this file separate from Code.gs and BillManagement.gs.
  */
 const MASTER_DATA_RESOURCES = {
-  vehicleTypes: { sheetName: "Types", headers: ["Vehicle Type Name", "Staff Type Name"], fields: ["Vehicle Type Name"], primaryKey: "Vehicle Type Name", required: ["Vehicle Type Name"], sharedSheet: true },
-  staffTypes: { sheetName: "Types", headers: ["Vehicle Type Name", "Staff Type Name"], fields: ["Staff Type Name"], primaryKey: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true },
-  vehicles: { sheetName: "Vehicles", headers: ["Vehicle No", "Type"], fields: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
-  staff: { sheetName: "Staff", headers: ["Id", "Name", "Type", "Remarks"], fields: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true }
+  // initialHeaders are used only when this project creates an empty sheet.
+  // Once a sheet has headers, those headers are the form's data contract. This
+  // lets a new column be added by updating the sheet and js/config.js only.
+  vehicleTypes: { sheetName: "Types", initialHeaders: ["Vehicle Type Name", "Staff Type Name"], primaryKey: "Vehicle Type Name", required: ["Vehicle Type Name"], sharedSheet: true },
+  staffTypes: { sheetName: "Types", initialHeaders: ["Vehicle Type Name", "Staff Type Name"], primaryKey: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true },
+  vehicles: { sheetName: "Vehicles", initialHeaders: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
+  staff: { sheetName: "Staff", initialHeaders: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true },
+  work: { sheetName: "Work", initialHeaders: ["Date", "Vehicle", "Client", "Quantity", "Night", "Rate", "Total", "Staff", "Remarks"], required: ["Date", "Vehicle", "Client", "Quantity", "Rate", "Total", "Staff"] },
+  staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
+  bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
+  statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] }
 };
 
 function handleMasterDataAction_(request) {
@@ -36,14 +43,13 @@ function getMasterDataSheet_(resourceName) {
   let headers = lastColumn ? sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(String) : [];
   headers = headers.map(value => value.trim());
   if (!headers.length || headers.every(value => !value)) {
-    sheet.getRange(1, 1, 1, resource.headers.length).setValues([resource.headers]);
-    headers = resource.headers.slice();
-  } else {
-    const missing = resource.headers.filter(header => !headers.includes(header));
-    if (missing.length) {
-      sheet.getRange(1, headers.length + 1, 1, missing.length).setValues([missing]);
-      headers = headers.concat(missing);
-    }
+    sheet.getRange(1, 1, 1, resource.initialHeaders.length).setValues([resource.initialHeaders]);
+    headers = resource.initialHeaders.slice();
+  }
+  if (headers.some(value => !value)) throw new Error(`${resource.sheetName} has an empty header.`);
+  if (new Set(headers).size !== headers.length) throw new Error(`${resource.sheetName} has duplicate headers.`);
+  if (resource.primaryKey && !headers.includes(resource.primaryKey)) {
+    throw new Error(`${resource.sheetName} must have a ${resource.primaryKey} header.`);
   }
   return { resource, sheet, headers };
 }
@@ -54,21 +60,24 @@ function readMasterData_(resourceName) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return Object.assign(result, { records: [] });
   const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getDisplayValues();
-  const keyIndex = headers.indexOf(resource.primaryKey);
-  const records = values.filter(row => String(row[keyIndex] || "").trim()).map(row => {
+  const keyIndex = resource.primaryKey ? headers.indexOf(resource.primaryKey) : -1;
+  const records = values.map((row, index) => ({ row, rowNumber: index + 2 }))
+    .filter(item => resource.primaryKey ? String(item.row[keyIndex] || "").trim() : item.row.some(value => String(value).trim()))
+    .map(item => {
     const record = {};
-    headers.forEach((header, index) => { record[header] = String(row[index] || "").trim(); });
+    headers.forEach((header, index) => { record[header] = String(item.row[index] || "").trim(); });
+    record._rowId = String(item.rowNumber);
     return record;
   });
   return Object.assign(result, { records });
 }
 
-function validateMasterData_(resource, data) {
+function validateMasterData_(resource, headers, data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid record data.");
-  const invalid = Object.keys(data).filter(key => !resource.fields.includes(key));
+  const invalid = Object.keys(data).filter(key => !headers.includes(key));
   if (invalid.length) throw new Error("Invalid field supplied.");
   const clean = {};
-  resource.fields.forEach(header => {
+  Object.keys(data).forEach(header => {
     const value = data[header];
     if (value !== undefined && value !== null && typeof value === "object") throw new Error("Field values must be plain text.");
     clean[header] = String(value || "").trim();
@@ -83,6 +92,10 @@ function validateMasterData_(resource, data) {
 }
 
 function findMasterDataRow_(sheet, headers, primaryKey, id) {
+  if (!primaryKey) {
+    const rowNumber = Number(id);
+    return Number.isInteger(rowNumber) && rowNumber >= 2 && rowNumber <= sheet.getLastRow() ? rowNumber : -1;
+  }
   const column = headers.indexOf(primaryKey) + 1;
   const lastRow = sheet.getLastRow();
   if (!column || lastRow < 2) return -1;
@@ -100,6 +113,26 @@ function validateMasterDataLookup_(resourceName, clean) {
     const types = readMasterData_("staffTypes").records.map(record => record["Staff Type Name"]);
     if (!types.includes(clean.Type)) throw new Error("Select a valid staff type.");
   }
+  if (resourceName === "work") {
+    if (!masterDataKeyExists_("vehicles", clean.Vehicle)) throw new Error("Select a valid vehicle.");
+    if (!readClients_().clients.some(client => String(client.Id) === clean.Client)) throw new Error("Select a valid client.");
+    if (!masterDataKeyExists_("staff", clean.Staff)) throw new Error("Select a valid staff member.");
+  }
+  if (resourceName === "staffManagement" && !masterDataKeyExists_("staff", clean.Staff)) {
+    throw new Error("Select a valid staff member.");
+  }
+  if (resourceName === "statement") {
+    if (!masterDataKeyExists_("bank", clean.Bank)) throw new Error("Select a valid bank account.");
+    if (!["Debit", "Credit"].includes(clean["Debit/Credit"])) throw new Error("Select Debit or Credit.");
+  }
+  if (resourceName === "bank" && !["Saving", "Current"].includes(clean["Saving/Current"])) {
+    throw new Error("Select Saving or Current.");
+  }
+}
+
+function masterDataKeyExists_(resourceName, key) {
+  const resource = getMasterDataResource_(resourceName);
+  return readMasterData_(resourceName).records.some(record => String(record[resource.primaryKey]) === String(key));
 }
 
 function getNextStaffId_(sheet, headers) {
@@ -115,7 +148,7 @@ function getNextStaffId_(sheet, headers) {
 
 function listMasterData_(resourceName) {
   const result = readMasterData_(resourceName);
-  return json_({ success: true, records: result.records, fields: result.resource.headers });
+  return json_({ success: true, records: result.records, fields: result.headers });
 }
 
 function nextMasterDataId_(resourceName) {
@@ -128,13 +161,13 @@ function createMasterData_(resourceName, data) {
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
     const { resource, sheet, headers } = getMasterDataSheet_(resourceName);
-    const clean = validateMasterData_(resource, data);
+    const clean = validateMasterData_(resource, headers, data);
     if (resource.autoId && !clean[resource.primaryKey]) clean[resource.primaryKey] = getNextStaffId_(sheet, headers);
-    const id = clean[resource.primaryKey];
-    if (!id) throw new Error(`${resource.primaryKey} is required.`);
-    if (findMasterDataRow_(sheet, headers, resource.primaryKey, id) !== -1) throw new Error(`${resource.primaryKey} already exists.`);
+    const id = resource.primaryKey ? clean[resource.primaryKey] : "";
+    if (resource.primaryKey && !id) throw new Error(`${resource.primaryKey} is required.`);
+    if (resource.primaryKey && findMasterDataRow_(sheet, headers, resource.primaryKey, id) !== -1) throw new Error(`${resource.primaryKey} already exists.`);
     validateMasterDataLookup_(resourceName, clean);
-    const row = headers.map(header => clean[header] || "");
+    const row = headers.map(header => Object.prototype.hasOwnProperty.call(clean, header) ? clean[header] : "");
     const rowNumber = sheet.getLastRow() + 1;
     sheet.getRange(rowNumber, 1, 1, row.length).setNumberFormat("@").setValues([row]);
     return json_({ success: true, id, message: "Record created successfully." });
@@ -148,17 +181,17 @@ function updateMasterData_(resourceName, originalId, data) {
     const { resource, sheet, headers } = getMasterDataSheet_(resourceName);
     const rowNumber = findMasterDataRow_(sheet, headers, resource.primaryKey, id);
     if (rowNumber === -1) throw new Error("Record was not found.");
-    const clean = validateMasterData_(resource, data);
-    const newId = clean[resource.primaryKey];
-    if (!newId) throw new Error(`${resource.primaryKey} is required.`);
-    const duplicateRow = findMasterDataRow_(sheet, headers, resource.primaryKey, newId);
-    if (duplicateRow !== -1 && duplicateRow !== rowNumber) throw new Error(`${resource.primaryKey} already exists.`);
+    const clean = validateMasterData_(resource, headers, data);
+    const newId = resource.primaryKey ? clean[resource.primaryKey] : id;
+    if (resource.primaryKey && !newId) throw new Error(`${resource.primaryKey} is required.`);
+    const duplicateRow = resource.primaryKey ? findMasterDataRow_(sheet, headers, resource.primaryKey, newId) : -1;
+    if (resource.primaryKey && duplicateRow !== -1 && duplicateRow !== rowNumber) throw new Error(`${resource.primaryKey} already exists.`);
     validateMasterDataLookup_(resourceName, clean);
-    if (resource.sharedSheet) {
-      sheet.getRange(rowNumber, headers.indexOf(resource.primaryKey) + 1).setValue(clean[resource.primaryKey]);
-    } else {
-      headers.forEach((header, index) => sheet.getRange(rowNumber, index + 1).setValue(clean[header] || ""));
-    }
+    const current = sheet.getRange(rowNumber, 1, 1, headers.length).getDisplayValues()[0];
+    const updated = headers.map((header, index) =>
+      Object.prototype.hasOwnProperty.call(clean, header) ? clean[header] : current[index]
+    );
+    sheet.getRange(rowNumber, 1, 1, updated.length).setNumberFormat("@").setValues([updated]);
     return json_({ success: true, id: newId, message: "Record updated successfully." });
   } finally { lock.releaseLock(); }
 }

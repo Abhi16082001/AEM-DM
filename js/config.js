@@ -35,10 +35,14 @@ window.APP_CONFIG = {
       icon: "▦",
       color: "#7aec7e"
     },
-    { id: "vehicle-types", title: "Vehicle Types", description: "Add and maintain vehicle types.", path: "master-data.html?feature=vehicleTypes", icon: "V", color: "#d9a7f5" },
-    { id: "vehicles", title: "Vehicles", description: "Add and maintain vehicles and their types.", path: "master-data.html?feature=vehicles", icon: "V", color: "#f3a98b" },
-    { id: "staff-types", title: "Staff Types", description: "Add and maintain staff types.", path: "master-data.html?feature=staffTypes", icon: "S", color: "#9cd7cf" },
-    { id: "staff", title: "Staff", description: "Add and maintain staff details.", path: "master-data.html?feature=staff", icon: "S", color: "#f0d680" }
+    { id: "vehicle-types", title: "Vehicle Types", description: "Add and maintain vehicle types.", path: "master-data.html?feature=vehicleTypes", icon: "V", color: "#c686ec" },
+    { id: "vehicles", title: "Vehicles", description: "Add and maintain vehicles and their types.", path: "master-data.html?feature=vehicles", icon: "V", color: "#c0836c" },
+    { id: "staff-types", title: "Staff Types", description: "Add and maintain staff types.", path: "master-data.html?feature=staffTypes", icon: "S", color: "#5da89e" },
+    { id: "staff", title: "Staff", description: "Add and maintain staff details.", path: "master-data.html?feature=staff", icon: "S", color: "#f0d680" },
+    { id: "work", title: "Work Management", description: "Record vehicle work, quantities, rates and staff.", path: "master-data.html?feature=work", icon: "W", color: "#b9d7f5" },
+    { id: "staff-management", title: "Staff Management", description: "Record staff payments and remarks.", path: "master-data.html?feature=staffManagement", icon: "S", color: "#f4b6c2" },
+    { id: "statement", title: "Statement Management", description: "Record bank debit and credit statements.", path: "master-data.html?feature=statement", icon: "T", color: "#c4e6a4" },
+    { id: "bank", title: "Add Bank Account", description: "Add and maintain bank accounts.", path: "master-data.html?feature=bank", icon: "B", color: "#d7c4f2" }
   ],
 
   CLIENTS: {
@@ -208,6 +212,55 @@ BILLERS: {
         { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Name", label: "Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 },
         { name: "Type", label: "Type", type: "lookup", lookupResource: "staffTypes", lookupField: "Staff Type Name", required: true, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Salary", label: "Salary", type: "number", required: true, editable: true, visibleInTable: true, maxLength: 20 },
+        { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
+      ]
+    },
+    work: {
+      resource: "work", title: "Work Management", singular: "Work Record", sheetName: "Work",
+      calculation: { target: "Total", left: "Quantity", right: "Rate", label: "Calculate Total" },
+      fields: [
+        { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
+        { name: "Vehicle", label: "Vehicle", type: "lookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: true, editable: true, visibleInTable: true },
+        { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: true, editable: true, visibleInTable: true },
+        { name: "Quantity", label: "Quantity", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Night", label: "Night", type: "checkbox", required: false, editable: true, visibleInTable: true },
+        { name: "Rate", label: "Rate", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Total", label: "Total", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Staff", label: "Staff", type: "lookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.Type})`, required: true, editable: true, visibleInTable: true },
+        { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
+      ]
+    },
+    staffManagement: {
+      resource: "staffManagement", title: "Staff Management", singular: "Staff Payment", sheetName: "StaffManagement",
+      fields: [
+        { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
+        { name: "Staff", label: "Staff", type: "lookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.Type})`, required: true, editable: true, visibleInTable: true },
+        { name: "Amount", label: "Amount", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
+      ]
+    },
+    bank: {
+      resource: "bank", title: "Bank Account Management", singular: "Bank Account", sheetName: "Bank", primaryKey: "Id", autoId: true,
+      fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
+        { name: "Account Holder Name", label: "Account Holder Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Last 6 Digit of Bank Account", label: "Last 6 Digit of Bank Account", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 6 },
+        { name: "Bank Name", label: "Bank Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Branch Name", label: "Branch Name", type: "text", required: false, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Saving/Current", label: "Saving/Current", type: "options", options: ["Saving", "Current"], required: true, editable: true, visibleInTable: true },
+        { name: "IFSC Code", label: "IFSC Code", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 }
+      ]
+    },
+    statement: {
+      resource: "statement", title: "Statement Management", singular: "Statement Entry", sheetName: "Statement",
+      fields: [
+        { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
+        { name: "Bank", label: "Bank", type: "lookup", lookupResource: "bank", lookupKey: "Id", lookupDisplay: record => `${record["Bank Name"]} (${record["Last 6 Digit of Bank Account"]}/${record["Account Holder Name"]})`, required: true, editable: true, visibleInTable: true },
+        { name: "Debit/Credit", label: "Debit/Credit", type: "options", options: ["Debit", "Credit"], required: true, editable: true, visibleInTable: true },
+        { name: "Amount", label: "Amount", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "To/From", label: "To/From", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 250 },
+        { name: "BillNo", label: "Bill No.", type: "text", required: false, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
     }

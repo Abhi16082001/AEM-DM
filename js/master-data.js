@@ -20,6 +20,11 @@
 
   const status = (element, message, type = "") => { element.textContent = message; element.className = `status ${type}`.trim(); };
   const escape = window.App.escapeHTML;
+  const recordKey = record => config.primaryKey ? record[config.primaryKey] : record._rowId;
+  const lookupDisplay = (field, value) => {
+    const match = (lookupValues[field.name] || []).find(item => item.key === String(value));
+    return match ? match.label : value;
+  };
 
   function fieldHtml(field) {
     const id = `field-${field.name.replace(/[^a-z0-9]/gi, "-")}`;
@@ -28,15 +33,22 @@
     let control;
     if (field.type === "textarea") {
       control = `<textarea id="${id}" name="${escape(field.name)}" rows="3" ${required} ${maxLength}></textarea>`;
-    } else if (field.type === "lookup") {
+    } else if (field.type === "lookup" || field.type === "options") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off" ${required} ${maxLength}><datalist id="${id}-options"></datalist>`;
+    } else if (field.type === "checkbox") {
+      control = `<input id="${id}" name="${escape(field.name)}" type="checkbox">`;
     } else {
-      control = `<input id="${id}" name="${escape(field.name)}" type="text" ${required} ${maxLength}>`;
+      control = `<input id="${id}" name="${escape(field.name)}" type="${field.type === "date" ? "date" : "text"}" ${required} ${maxLength}>`;
     }
     return `<div class="field-group"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark">*</span>' : ""}</label>${control}</div>`;
   }
 
-  function buildForm() { $("master-fields").innerHTML = fields.map(fieldHtml).join(""); }
+  function buildForm() {
+    $("master-fields").innerHTML = fields.map(fieldHtml).join("") + (config.calculation
+      ? `<div class="field-group"><label>&nbsp;</label><button id="calculate-button" class="button button-secondary" type="button">${escape(config.calculation.label)}</button></div>`
+      : "");
+    if (config.calculation) $("calculate-button").addEventListener("click", calculateTotal);
+  }
   function buildTableHeader() {
     $("records-head").innerHTML = `<tr>${tableFields.map(f => `<th scope="col">${escape(f.label)}</th>`).join("")}<th scope="col" class="actions-column">Actions</th></tr>`;
   }
@@ -50,8 +62,8 @@
       return;
     }
     $("records-body").innerHTML = records.map(record => {
-      const key = escape(record[config.primaryKey]);
-      return `<tr>${tableFields.map(f => `<td>${escape(record[f.name] ?? "—")}</td>`).join("")}<td><div class="row-actions">
+      const key = escape(recordKey(record));
+      return `<tr>${tableFields.map(f => `<td>${escape(f.type === "lookup" ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—")}</td>`).join("")}<td><div class="row-actions">
         <button class="icon-button" type="button" data-action="view" data-key="${key}" title="View">⌕</button>
         <button class="icon-button" type="button" data-action="edit" data-key="${key}" title="Edit">✎</button>
         <button class="icon-button danger btn btn-danger" type="button" data-action="delete" data-key="${key}" title="Delete">⌫</button>
@@ -59,12 +71,24 @@
     }).join("");
   }
   async function loadLookups() {
-    const lookupFields = fields.filter(f => f.type === "lookup");
+    const lookupFields = fields.filter(f => f.type === "lookup" || f.type === "options");
     await Promise.all(lookupFields.map(async field => {
-      const result = await window.App.apiRequest("listMasterData", { resource: field.lookupResource });
-      lookupValues[field.name] = (result.records || []).map(record => String(record[field.lookupField] || "")).filter(Boolean);
+      if (field.type === "options") {
+        lookupValues[field.name] = field.options.map(value => ({ key: value, label: value }));
+      } else {
+        const action = field.lookupAction || "listMasterData";
+        const result = await window.App.apiRequest(action, field.lookupAction ? {} : { resource: field.lookupResource });
+        const source = result[field.lookupResponse || "records"] || [];
+        // lookupField is retained as a friendly alias for older config entries.
+        // A lookup always submits the key while its searchable list shows a label.
+        const keyField = field.lookupKey || field.lookupField;
+        lookupValues[field.name] = source.map(record => ({
+          key: String(record[keyField] || ""),
+          label: String(field.lookupDisplay ? field.lookupDisplay(record) : record[keyField] || "")
+        })).filter(item => item.key && item.label);
+      }
       const list = $("field-" + field.name.replace(/[^a-z0-9]/gi, "-") + "-options");
-      list.innerHTML = lookupValues[field.name].map(value => `<option value="${escape(value)}"></option>`).join("");
+      list.innerHTML = lookupValues[field.name].map(item => `<option value="${escape(item.label)}"></option>`).join("");
     }));
   }
   async function setSuggestedId() {
@@ -86,14 +110,18 @@
     try { await setSuggestedId(); } catch (error) { status($("form-status"), error.message, "error"); }
   }
   function editRecord(record) {
-    editingKey = record[config.primaryKey];
-    fields.forEach(field => { $("master-form").elements.namedItem(field.name).value = record[field.name] ?? ""; });
+    editingKey = recordKey(record);
+    fields.forEach(field => {
+      const input = $("master-form").elements.namedItem(field.name);
+      if (field.type === "checkbox") input.checked = String(record[field.name]).toLowerCase() === "true";
+      else input.value = field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "";
+    });
     $("form-title").textContent = `Edit ${config.singular}`; $("save-button").textContent = `Update ${config.singular}`; $("cancel-button").hidden = false;
     $("master-form").scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function showDetails(record) {
     $("dialog-title").textContent = `${config.singular} Details`;
-    $("record-details").innerHTML = fields.map(f => `<div class="detail-item"><span>${escape(f.label)}</span><p>${escape(record[f.name] ?? "—") || "—"}</p></div>`).join("");
+    $("record-details").innerHTML = fields.map(f => `<div class="detail-item"><span>${escape(f.label)}</span><p>${escape(f.type === "lookup" ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—") || "—"}</p></div>`).join("");
     $("record-dialog").showModal();
   }
 
@@ -101,9 +129,13 @@
     event.preventDefault(); if (busy || !event.currentTarget.reportValidity()) return;
     const data = {};
     for (const field of fields) {
-      const value = event.currentTarget.elements.namedItem(field.name).value.trim();
-      if (field.type === "lookup" && !lookupValues[field.name].includes(value)) { status($("form-status"), `Select a valid ${field.label}.`, "error"); return; }
-      data[field.name] = value;
+      const input = event.currentTarget.elements.namedItem(field.name);
+      const value = field.type === "checkbox" ? String(input.checked) : input.value.trim();
+      if (field.type === "lookup" || field.type === "options") {
+        const choice = (lookupValues[field.name] || []).find(item => item.label === value);
+        if (!choice) { status($("form-status"), `Select a valid ${field.label}.`, "error"); return; }
+        data[field.name] = choice.key;
+      } else data[field.name] = value;
     }
     const wasEditing = Boolean(editingKey); setBusy(true); status($("form-status"), "");
     try {
@@ -117,19 +149,28 @@
   });
   $("records-body").addEventListener("click", async event => {
     const button = event.target.closest("button[data-action]"); if (!button) return;
-    const record = records.find(item => String(item[config.primaryKey]) === button.dataset.key); if (!record) return;
+    const record = records.find(item => String(recordKey(item)) === button.dataset.key); if (!record) return;
     if (button.dataset.action === "view") return showDetails(record);
     if (button.dataset.action === "edit") return editRecord(record);
-    if (!confirm(`Delete ${config.singular.toLowerCase()} ${record[config.primaryKey]}? This cannot be undone.`)) return;
+    if (!confirm(`Delete ${config.singular.toLowerCase()} ${recordKey(record)}? This cannot be undone.`)) return;
     try {
-      const result = await window.App.apiRequest("deleteMasterData", { resource: config.resource, id: record[config.primaryKey] });
-      if (editingKey === record[config.primaryKey]) await resetForm();
+      const result = await window.App.apiRequest("deleteMasterData", { resource: config.resource, id: recordKey(record) });
+      if (editingKey === recordKey(record)) await resetForm();
       await loadLookups(); await loadRecords(); status($("table-status"), result.message, "success");
     } catch (error) { status($("table-status"), error.message, "error"); }
   });
   $("cancel-button").addEventListener("click", resetForm);
   $("refresh-button").addEventListener("click", async () => { await loadLookups(); await loadRecords(); });
   $("close-dialog").addEventListener("click", () => $("record-dialog").close());
+
+  function calculateTotal() {
+    const parseNumber = value => {
+      const match = String(value || "").replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+      return match ? Number(match[0]) : 0;
+    };
+    const { left, right, target } = config.calculation;
+    $("master-form").elements.namedItem(target).value = (parseNumber($("master-form").elements.namedItem(left).value) * parseNumber($("master-form").elements.namedItem(right).value)).toFixed(2);
+  }
 
   buildForm(); buildTableHeader();
   (async () => { try { await loadLookups(); await loadRecords(); await setSuggestedId(); } catch (error) { status($("form-status"), error.message, "error"); } })();
