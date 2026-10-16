@@ -42,7 +42,10 @@ window.APP_CONFIG = {
     { id: "work", title: "Work Management", description: "Record vehicle work, quantities, rates and staff.", path: "master-data.html?feature=work", icon: "W", color: "#b9d7f5" },
     { id: "staff-management", title: "Staff Management", description: "Record staff payments and remarks.", path: "master-data.html?feature=staffManagement", icon: "S", color: "#f4b6c2" },
     { id: "statement", title: "Statement Management", description: "Record bank debit and credit statements.", path: "master-data.html?feature=statement", icon: "T", color: "#c4e6a4" },
-    { id: "bank", title: "Add Bank Account", description: "Add and maintain bank accounts.", path: "master-data.html?feature=bank", icon: "B", color: "#d7c4f2" }
+    { id: "bank", title: "Add Bank Account", description: "Add and maintain bank accounts.", path: "master-data.html?feature=bank", icon: "B", color: "#d7c4f2" },
+    { id: "analyze-work", title: "Analyze Work", description: "Read and filter work records.", path: "analysis.html?feature=work", icon: "W", color: "#a9d7ea" },
+    { id: "analyze-statement", title: "Analyze Statement", description: "Read and filter statement entries.", path: "analysis.html?feature=statement", icon: "T", color: "#b8e2bd" },
+    { id: "analyze-staff", title: "Analyze Staff", description: "Read and filter staff payments.", path: "analysis.html?feature=staff", icon: "S", color: "#f1d1a8" }
   ],
 
   CLIENTS: {
@@ -266,4 +269,26 @@ BILLERS: {
     }
   }
   
+};
+
+window.APP_CONFIG.ANALYSIS = {
+  work: {
+    resource: "work", title: "Analyze Work", singular: "Work Record",
+    fields: [
+      ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => Object.assign({}, field, { required: false })),
+      { name: "Vehicle Type", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, visibleInTable: true },
+      { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
+    ]
+  },
+  statement: {
+    resource: "statement", title: "Analyze Statement", singular: "Statement Entry",
+    fields: window.APP_CONFIG.MASTER_DATA.statement.fields.map(field => Object.assign({}, field, { required: false }))
+  },
+  staff: {
+    resource: "staffManagement", title: "Analyze Staff", singular: "Staff Payment",
+    fields: [
+      ...window.APP_CONFIG.MASTER_DATA.staffManagement.fields.map(field => Object.assign({}, field, { required: false })),
+      { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
+    ]
+  }
 };

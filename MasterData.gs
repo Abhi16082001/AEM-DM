@@ -23,6 +23,7 @@ function handleMasterDataAction_(request) {
     case "updateMasterData": return updateMasterData_(request.resource, request.id, request.data || {});
     case "deleteMasterData": return deleteMasterData_(request.resource, request.id);
     case "nextMasterDataId": return nextMasterDataId_(request.resource);
+    case "analyzeMasterData": return analyzeMasterData_(request.resource, request.filters || {});
     default: return null;
   }
 }
@@ -207,4 +208,65 @@ function deleteMasterData_(resourceName, idValue) {
     else sheet.deleteRow(rowNumber);
     return json_({ success: true, message: "Record deleted successfully." });
   } finally { lock.releaseLock(); }
+}
+
+/* ---------------- Read-only analysis ---------------- */
+
+function analysisFields_(resourceName, headers) {
+  const derived = {
+    work: ["Vehicle Type", "Staff Type"],
+    staffManagement: ["Staff Type"],
+    statement: []
+  };
+  if (!Object.prototype.hasOwnProperty.call(derived, resourceName)) {
+    throw new Error("This resource does not support analysis.");
+  }
+  return headers.concat(derived[resourceName]);
+}
+
+function analysisText_(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+function recordMatchesFilters_(record, filters) {
+  return Object.keys(filters).every(field => {
+    const wanted = analysisText_(filters[field]).toLowerCase();
+    return !wanted || analysisText_(record[field]).toLowerCase().includes(wanted);
+  });
+}
+
+function analyzeMasterData_(resourceName, filters) {
+  if (!filters || typeof filters !== "object" || Array.isArray(filters)) {
+    throw new Error("Invalid analysis filters.");
+  }
+
+  const result = readMasterData_(resourceName);
+  const allowedFields = analysisFields_(resourceName, result.headers);
+  Object.keys(filters).forEach(field => {
+    if (!allowedFields.includes(field)) throw new Error("Invalid analysis filter.");
+    if (typeof filters[field] === "object" || analysisText_(filters[field]).length > 1000) {
+      throw new Error("Invalid analysis filter value.");
+    }
+  });
+
+  const vehicles = resourceName === "work" ? readMasterData_("vehicles").records : [];
+  const staff = (resourceName === "work" || resourceName === "staffManagement")
+    ? readMasterData_("staff").records : [];
+
+  const records = result.records.map(record => {
+    const enriched = Object.assign({}, record);
+    if (resourceName === "work") {
+      const vehicle = vehicles.find(item => String(item["Vehicle No"]) === String(record.Vehicle));
+      const staffMember = staff.find(item => String(item.Id) === String(record.Staff));
+      enriched["Vehicle Type"] = vehicle ? vehicle.Type : "";
+      enriched["Staff Type"] = staffMember ? staffMember.Type : "";
+    }
+    if (resourceName === "staffManagement") {
+      const staffMember = staff.find(item => String(item.Id) === String(record.Staff));
+      enriched["Staff Type"] = staffMember ? staffMember.Type : "";
+    }
+    return enriched;
+  }).filter(record => recordMatchesFilters_(record, filters));
+
+  return json_({ success: true, records, fields: allowedFields });
 }
