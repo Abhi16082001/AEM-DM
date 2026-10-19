@@ -226,6 +226,7 @@ BILLERS: {
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "Vehicle", label: "Vehicle", type: "lookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: true, editable: true, visibleInTable: true },
         { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: true, editable: true, visibleInTable: true },
+        { name: "SiteAddress", label: "Site Address", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 },
         { name: "Quantity", label: "Quantity", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Night", label: "Night", type: "checkbox", required: false, editable: true, visibleInTable: true },
         { name: "Rate", label: "Rate", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },

@@ -169,8 +169,26 @@ function createMasterData_(resourceName, data) {
     if (resource.primaryKey && findMasterDataRow_(sheet, headers, resource.primaryKey, id) !== -1) throw new Error(`${resource.primaryKey} already exists.`);
     validateMasterDataLookup_(resourceName, clean);
     const row = headers.map(header => Object.prototype.hasOwnProperty.call(clean, header) ? clean[header] : "");
+    let clientSheet = null;
+    if (resourceName === "work") {
+      const client = readClients_().clients.find(item => String(item.Id) === String(clean.Client));
+      // The client was validated above, but keep this guard so the sheet name
+      // is never constructed from incomplete data.
+      if (!client) throw new Error("Select a valid client.");
+      // Check/provision the destination before the primary Work row is written.
+      clientSheet = createClientWorkSheet_(client.Id, client.Name, headers);
+    }
+
     const rowNumber = sheet.getLastRow() + 1;
     sheet.getRange(rowNumber, 1, 1, row.length).setNumberFormat("@").setValues([row]);
+
+    if (clientSheet) {
+      const clientRow = clientSheet.getLastRow() + 1;
+      clientSheet.getRange(clientRow, 1, 1, row.length)
+        .setNumberFormat("@")
+        .setValues([row]);
+    }
+
     return json_({ success: true, id, message: "Record created successfully." });
   } finally { lock.releaseLock(); }
 }
@@ -249,11 +267,34 @@ function analyzeMasterData_(resourceName, filters) {
     }
   });
 
+  let source = result;
+  const selectedClient = resourceName === "work" && analysisText_(filters.Client);
+  if (selectedClient) {
+    const client = readClients_().clients.find(item => String(item.Id) === selectedClient);
+    if (!client) throw new Error("Select a valid client.");
+
+    const clientSheet = createClientWorkSheet_(client.Id, client.Name, result.headers);
+    const lastRow = clientSheet.getLastRow();
+    const values = lastRow < 2 ? [] : clientSheet
+      .getRange(2, 1, lastRow - 1, result.headers.length)
+      .getDisplayValues();
+    const records = values
+      .filter(row => row.some(value => String(value).trim()))
+      .map((row, index) => {
+        const record = { _rowId: String(index + 2) };
+        result.headers.forEach((header, column) => {
+          record[header] = String(row[column] || "").trim();
+        });
+        return record;
+      });
+    source = Object.assign({}, result, { records });
+  }
+
   const vehicles = resourceName === "work" ? readMasterData_("vehicles").records : [];
   const staff = (resourceName === "work" || resourceName === "staffManagement")
     ? readMasterData_("staff").records : [];
 
-  const records = result.records.map(record => {
+  const records = source.records.map(record => {
     const enriched = Object.assign({}, record);
     if (resourceName === "work") {
       const vehicle = vehicles.find(item => String(item["Vehicle No"]) === String(record.Vehicle));

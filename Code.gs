@@ -293,6 +293,58 @@ function getSpreadsheet_() {
   return SpreadsheetApp.openById(id);
 }
 
+/**
+ * The separate spreadsheet that stores one Work sheet per client.
+ * Its ID is deliberately kept in Script Properties rather than source code.
+ */
+function getClientSpreadsheet_() {
+  const id = PropertiesService.getScriptProperties()
+    .getProperty("CLIENTSPREADSHEET_ID");
+
+  if (!id) {
+    throw new Error("Set CLIENTSPREADSHEET_ID in Script Properties.");
+  }
+
+  return SpreadsheetApp.openById(id);
+}
+
+function clientWorkSheetName_(id, name) {
+  const sheetName = String(id) + "_" + String(name || "").trim();
+
+  // Google Sheets does not permit these characters in tab names and limits
+  // them to 100 characters. Do not silently alter the requested Id_Name.
+  const hasInvalidCharacter = ["[", "]", "*", "?", "/", String.fromCharCode(92), ":"]
+    .some(character => sheetName.includes(character));
+  if (!sheetName || sheetName.length > 100 || hasInvalidCharacter) {
+    throw new Error("Client ID and Name cannot be used as a client work-sheet name.");
+  }
+
+  return sheetName;
+}
+
+function createClientWorkSheet_(id, name, workHeaders) {
+  const spreadsheet = getClientSpreadsheet_();
+  const sheetName = clientWorkSheetName_(id, name);
+  let sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, workHeaders.length).setValues([workHeaders]);
+    sheet.setFrozenRows(1);
+    return sheet;
+  }
+
+  const existingHeaders = sheet.getLastColumn()
+    ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0].map(value => String(value).trim())
+    : [];
+  if (existingHeaders.length !== workHeaders.length ||
+      existingHeaders.some((value, index) => value !== workHeaders[index])) {
+    throw new Error('Client work sheet "' + sheetName + '" does not match the Work sheet columns.');
+  }
+
+  return sheet;
+}
+
 function getClientsSheet_() {
   const sheet = getSpreadsheet_().getSheetByName("Clients");
 
@@ -434,6 +486,11 @@ function createClient_(data) {
     const row = headers.map(header =>
       header === "Id" ? id : (clean[header] ?? "")
     );
+
+    // Provision the per-client sheet before changing the Clients sheet, so a
+    // configuration or sheet-name error cannot leave a partially created client.
+    const work = getMasterDataSheet_("work");
+    createClientWorkSheet_(id, clean.Name, work.headers);
 
     const newRow = sheet.getLastRow() + 1;
     sheet.getRange(newRow, 1, 1, row.length).setNumberFormat("@");
