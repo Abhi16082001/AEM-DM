@@ -100,6 +100,8 @@ function sanitizeHtml(value) {
     state.editing=!!bill; state.originalBillNo=bill?String(bill.BillNo):"";
     $("invoice-view-panel").hidden=true;
     $("bill-form").reset();
+    // reset() clears the text field but not data-* flags from a previous bill.
+    delete $("amount-in-words").dataset.userEdited;
     $("particulars-container").innerHTML="";
     $("original-bill-no").value=state.originalBillNo;
     $("editor-title").textContent=readOnly?`View bill ${bill.BillNo}`:(bill?"Edit bill":"Create bill");
@@ -435,7 +437,20 @@ function sanitizeHtml(value) {
   stateRadios.forEach(r=>r.addEventListener("change",()=>{toggleTaxFields();calculateGrandTotal();}));
   $("tax-percentage").addEventListener("input",()=>{toggleTaxFields();calculateGrandTotal();});
   ["cgst","sgst","igst","total-amount"].forEach(id=>$(id).addEventListener("input",calculateGrandTotal));
-  $("grand-total").addEventListener("input",()=>{$("amount-in-words").dataset.userEdited="true";});
+  $("grand-total").addEventListener("input",()=>updateAmountInWords_($("grand-total").value));
+  function wholeRupees_(amount) {
+    // First round to the same two decimal places displayed in Grand Total.
+    // This avoids floating-point values such as 100.999999999 being floored
+    // to 100 while the field visibly shows 101.00.
+    const displayedAmount = Math.round((money(amount) + Number.EPSILON) * 100) / 100;
+    return Math.floor(displayedAmount);
+  }
+  function updateAmountInWords_(amount) {
+    const field = $("amount-in-words");
+    if (!field.dataset.userEdited || !field.value.trim()) {
+      field.value = numberToIndianWords(wholeRupees_(amount)) + " Rupees Only";
+    }
+  }
   function calculateGrandTotal(){
     const total=money($("total-amount").value);
     let grand=total;
@@ -447,9 +462,9 @@ function sanitizeHtml(value) {
         : money($("igst-amount").value);
       grand+=taxAmount;
     }
-    $("grand-total").value=grand.toFixed(2);
-    if(!$("amount-in-words").dataset.userEdited || !$("amount-in-words").value.trim())
-      $("amount-in-words").value=numberToIndianWords(Math.round(grand))+" Rupees Only";
+    const displayedGrand = Math.round((grand + Number.EPSILON) * 100) / 100;
+    $("grand-total").value=displayedGrand.toFixed(2);
+    updateAmountInWords_(displayedGrand);
   }
   $("amount-in-words").addEventListener("input",()=>{$("amount-in-words").dataset.userEdited="true";});
   function numberToIndianWords(num){
@@ -460,9 +475,14 @@ function sanitizeHtml(value) {
     const under100=n=>n<20?ones[n]:tens[Math.floor(n/10)]+(n%10?" "+ones[n%10]:"");
     const under1000=n=>(n>=100?ones[Math.floor(n/100)]+" Hundred"+(n%100?" ":""):"")+(n%100?under100(n%100):"");
     let n=Math.floor(num),parts=[];
-    for(const [value,name] of [[10000000,"Crore"],[100000,"Lakh"],[1000,"Thousand"],[100,"Hundred"]]){
-      if(n>=value){const count=Math.floor(n/value);parts.push(value===100?ones[count]+" "+name:under1000(count)+" "+name);n%=value;}
+    for(const [value,name] of [[10000000,"Crore"],[100000,"Lakh"],[1000,"Thousand"]]){
+      if(n>=value){
+        const count=Math.floor(n/value);
+        parts.push((count < 1000 ? under1000(count) : numberToIndianWords(count))+" "+name);
+        n%=value;
+      }
     }
+    if(n>=100){parts.push(ones[Math.floor(n/100)]+" Hundred");n%=100;}
     if(n)parts.push(under1000(n));
     return parts.join(" ");
   }
