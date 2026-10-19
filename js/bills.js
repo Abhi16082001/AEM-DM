@@ -335,6 +335,12 @@ function sanitizeHtml(value) {
     button.disabled=true;button.textContent="Generating PDF…";
     try{
       const element=$("invoice-document");
+      // Wait for the bundled Algerian font so html2canvas uses it in PDFs on
+      // mobile as well as on computers where Algerian is installed locally.
+      if(document.fonts){
+        await document.fonts.load('28px "Algerian Embedded"');
+        await document.fonts.ready;
+      }
       const filename=`Bill-${String(state.viewBillNo||"invoice").replace(/[^a-zA-Z0-9_-]/g,"_")}.pdf`;
       await window.html2pdf().set({
         margin:[5,5,5,5],filename,
