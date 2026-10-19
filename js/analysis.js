@@ -10,6 +10,7 @@
   const escape = window.App.escapeHTML;
   const lookupValues = {};
   const fields = config.fields;
+  const isWorkAnalysis = config.resource === "work";
   let records = [];
 
   $("page-title").textContent = config.title;
@@ -71,6 +72,17 @@
     ).join("")}</tr>`).join("");
   }
 
+  function calculateTotal() {
+    const total = records.reduce((sum, record) => {
+      // Work totals are saved as text, so accept standard comma-formatted
+      // amounts while ignoring a blank Total cell.
+      const raw = String(record.Total ?? "").replace(/,/g, "").trim();
+      const value = raw ? Number(raw) : 0;
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    status($("calculated-total"), `Total of all ${records.length} filtered work record(s): ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, "success");
+  }
+
   function filtersFromForm() {
     const filters = {};
     for (const field of fields) {
@@ -93,14 +105,19 @@
       const result = await window.App.apiRequest("analyzeMasterData", { resource: config.resource, filters: filtersFromForm() });
       records = result.records || [];
       buildTable();
+      $("calculated-total").textContent = "";
+      $("calculate-total-button").hidden = !isWorkAnalysis || !records.length;
       status($("table-status"), `${records.length} matching record(s).`, "success");
     } catch (error) {
+      $("calculate-total-button").hidden = true;
+      $("calculated-total").textContent = "";
       status($("filter-status"), error.message, "error");
       status($("table-status"), "", "");
     }
   }
 
   $("analysis-fields").innerHTML = fields.map(fieldHtml).join("");
+  $("calculate-total-button").addEventListener("click", calculateTotal);
   $("analysis-form").addEventListener("submit", event => { event.preventDefault(); status($("filter-status"), ""); runAnalysis(); });
   $("clear-button").addEventListener("click", () => { $("analysis-form").reset(); status($("filter-status"), ""); runAnalysis(); });
   $("refresh-button").addEventListener("click", runAnalysis);
