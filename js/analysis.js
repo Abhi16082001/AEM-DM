@@ -65,11 +65,13 @@
     $("records-head").innerHTML = `<tr>${fields.map(field => `<th scope="col">${escape(field.label)}</th>`).join("")}</tr>`;
     if (!records.length) {
       $("records-body").innerHTML = `<tr><td colspan="${fields.length}" class="empty-state">No matching records found.</td></tr>`;
+      window.App.paginateTable($("records-body"));
       return;
     }
     $("records-body").innerHTML = records.map(record => `<tr>${fields.map(field =>
       `<td>${escape(field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "—")}</td>`
     ).join("")}</tr>`).join("");
+    window.App.paginateTable($("records-body"));
   }
 
   function calculateTotal() {

@@ -78,7 +78,15 @@ window.APP_CONFIG = {
         required: true,
         maxLength: 1000
       },
-
+ {
+        name: "Phone",
+        label: "Phone No.",
+        type: "number",
+        visibleInTable: true,
+        editable: true,
+        required: true,
+        maxLength: 10
+      },
       {
         name: "GST",
         label: "GST Number",

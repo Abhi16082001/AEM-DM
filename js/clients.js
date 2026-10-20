@@ -94,6 +94,7 @@
           </td>
         </tr>
       `;
+      window.App.paginateTable(tableBody);
       return;
     }
 
@@ -120,6 +121,7 @@
         </td>
       </tr>
     `).join("");
+    window.App.paginateTable(tableBody);
   }
 
   async function loadClients() {

@@ -515,10 +515,45 @@ tbody tr:hover {
   background: #fafbff;
 }
 
-td {
+table.data-table td {
   max-width: 300px;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.data-table-controls,
+.data-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.data-table-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+}
+
+.data-table-controls select {
+  width: auto;
+  min-height: 34px;
+  padding: 5px 28px 5px 9px;
+}
+
+.data-table-search {
+  width: min(100%, 280px);
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.data-table-summary { color: var(--muted); }
+.data-table-page-buttons { display: flex; gap: 8px; }
+.data-table-page-buttons .button { min-height: 34px; padding: 6px 11px; }
 
 .actions-column {
   min-width: 125px;
@@ -624,6 +659,12 @@ td {
 /* Responsive layout */
 
 @media (max-width: 760px) {
+  .data-table-controls,
+  .data-table-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .navbar {
     flex-wrap: wrap;
     gap: 12px;

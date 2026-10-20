@@ -16,7 +16,7 @@
   $("page-subheading").textContent = `Create, view, edit and manage ${config.singular.toLowerCase()} records.`;
   $("form-title").textContent = `Add ${config.singular}`;
   $("table-title").textContent = `${config.singular}s`;
-  document.title = `${config.title} — Bill Creator`;
+  document.title = `${config.title} — Anil Earth Mover`;
 
   const status = (element, message, type = "") => { element.textContent = message; element.className = `status ${type}`.trim(); };
   const escape = window.App.escapeHTML;
@@ -59,6 +59,7 @@
   function renderTable() {
     if (!records.length) {
       $("records-body").innerHTML = `<tr><td colspan="${tableFields.length + 1}" class="empty-state">No records found. Add the first ${escape(config.singular.toLowerCase())} above.</td></tr>`;
+      window.App.paginateTable($("records-body"));
       return;
     }
     $("records-body").innerHTML = records.map(record => {
@@ -69,6 +70,7 @@
         <button class="icon-button danger btn btn-danger" type="button" data-action="delete" data-key="${key}" title="Delete">⌫</button>
       </div></td></tr>`;
     }).join("");
+    window.App.paginateTable($("records-body"));
   }
   async function loadLookups() {
     const lookupFields = fields.filter(f => f.type === "lookup" || f.type === "options");
