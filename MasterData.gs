@@ -13,7 +13,8 @@ const MASTER_DATA_RESOURCES = {
   work: { sheetName: "Work", initialHeaders: ["Date", "Vehicle", "Client", "Quantity", "Night", "Rate", "Total", "Staff", "Remarks"], required: ["Date", "Vehicle", "Client", "Quantity", "Rate", "Total", "Staff"] },
   staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
-  statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] }
+  statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
+  projects: { sheetName: "Projects", initialHeaders: ["Id", "ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount", "ProjectDescription"], primaryKey: "Id", required: ["ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount"], autoId: true }
 };
 
 function handleMasterDataAction_(request) {
@@ -125,6 +126,10 @@ function validateMasterDataLookup_(resourceName, clean) {
   if (resourceName === "statement") {
     if (!masterDataKeyExists_("bank", clean.Bank)) throw new Error("Select a valid bank account.");
     if (!["Debit", "Credit"].includes(clean["Debit/Credit"])) throw new Error("Select Debit or Credit.");
+  }
+  if (resourceName === "projects" && clean.ClientId &&
+      !readClients_().clients.some(client => String(client.Id) === clean.ClientId)) {
+    throw new Error("Select a valid client.");
   }
   if (resourceName === "bank" && !["Saving", "Current"].includes(clean["Saving/Current"])) {
     throw new Error("Select Saving or Current.");

@@ -43,6 +43,7 @@ window.APP_CONFIG = {
     { id: "staff-management", title: "Staff Management", description: "Record staff payments and remarks.", path: "master-data.html?feature=staffManagement", icon: "S", color: "#f4b6c2" },
     { id: "statement", title: "Statement Management", description: "Record bank debit and credit statements.", path: "master-data.html?feature=statement", icon: "T", color: "#c4e6a4" },
     { id: "bank", title: "Add Bank Account", description: "Add and maintain bank accounts.", path: "master-data.html?feature=bank", icon: "B", color: "#d7c4f2" },
+    { id: "projects", title: "Project Management", description: "Create and manage client projects.", path: "master-data.html?feature=projects", icon: "P", color: "#8cc5bd" },
     { id: "analyze-work", title: "Analyze Work", description: "Read and filter work records.", path: "analysis.html?feature=work", icon: "W", color: "#a9d7ea" },
     { id: "analyze-statement", title: "Analyze Statement", description: "Read and filter statement entries.", path: "analysis.html?feature=statement", icon: "T", color: "#b8e2bd" },
     { id: "analyze-staff", title: "Analyze Staff", description: "Read and filter staff payments.", path: "analysis.html?feature=staff", icon: "S", color: "#f1d1a8" }
@@ -274,6 +275,18 @@ BILLERS: {
         { name: "To/From", label: "To/From", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 250 },
         { name: "BillNo", label: "Bill No.", type: "text", required: false, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
+      ]
+    },
+    projects: {
+      resource: "projects", title: "Project Management", singular: "Project", sheetName: "Projects", primaryKey: "Id", autoId: true,
+      fields: [
+        { name: "Id", label: "Project ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
+        { name: "ProjectName", label: "Project Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 200 },
+        { name: "ClientId", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || record.Name || ""} (${record.Id})`, required: true, editable: true, visibleInTable: true },
+        { name: "ProjectStartDate", label: "Project Start Date", type: "date", required: true, editable: true, visibleInTable: true },
+        { name: "ProjectEndDate", label: "Project End Date", type: "date", required: true, editable: true, visibleInTable: true },
+        { name: "ProjectAmount", label: "Project Amount", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "ProjectDescription", label: "Project Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 }
       ]
     }
   }
