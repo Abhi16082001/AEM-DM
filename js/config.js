@@ -306,7 +306,7 @@ BILLERS: {
 
 window.APP_CONFIG.ANALYSIS = {
   work: {
-    resource: "work", title: "Analyze Work", singular: "Work Record",
+    resource: "work", title: "Analyze Work", singular: "Work Record", totalField: "Total", totalLabel: "work record(s)",
     fields: [
       ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => Object.assign({}, field, { required: false })),
       { name: "Vehicle Type", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, visibleInTable: true },
@@ -318,7 +318,7 @@ window.APP_CONFIG.ANALYSIS = {
     fields: window.APP_CONFIG.MASTER_DATA.statement.fields.map(field => Object.assign({}, field, { required: false }))
   },
   staff: {
-    resource: "staffManagement", title: "Analyze Staff", singular: "Staff Payment",
+    resource: "staffManagement", title: "Analyze Staff", singular: "Staff Payment", totalField: "Amount", totalLabel: "staff payment(s)",
     fields: [
       ...window.APP_CONFIG.MASTER_DATA.staffManagement.fields.map(field => Object.assign({}, field, { required: false })),
       { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }

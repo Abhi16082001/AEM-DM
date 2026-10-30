@@ -1053,3 +1053,14 @@ table.data-table td {
     padding: 16px;
   }
 }
+
+#download-button{
+  background:lightgreen;
+  color:darkgreen;
+  border:darkgreen solid 1px;
+}
+#download-button:hover{
+  background:rgb(181, 228, 181);
+  color:rgb(4, 75, 4);
+  border:darkgreen solid 1px;
+}
