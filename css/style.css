@@ -59,6 +59,36 @@ button:disabled {
   display: none !important;
 }
 
+.global-api-loader {
+  position: fixed;
+  z-index: 9999;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 15px;
+  border-radius: 10px;
+  background: rgba(23, 32, 51, .94);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .2);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.global-api-spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: global-api-spin .7s linear infinite;
+}
+
+@keyframes global-api-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Login */
 
 .page {

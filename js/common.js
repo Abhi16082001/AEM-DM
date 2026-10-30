@@ -1,6 +1,22 @@
 
 (() => {
   const config = window.APP_CONFIG;
+  let activeRequests = 0;
+
+  function setGlobalLoading(active) {
+    activeRequests = Math.max(0, activeRequests + (active ? 1 : -1));
+    let loader = document.getElementById("global-api-loader");
+    if (!loader && active) {
+      loader = document.createElement("div");
+      loader.id = "global-api-loader";
+      loader.className = "global-api-loader";
+      loader.setAttribute("role", "status");
+      loader.setAttribute("aria-live", "polite");
+      loader.innerHTML = '<span class="global-api-spinner" aria-hidden="true"></span><span>Please wait…</span>';
+      document.body.appendChild(loader);
+    }
+    if (loader) loader.hidden = activeRequests === 0;
+  }
 
   function getToken() {
     return sessionStorage.getItem(config.SESSION_TOKEN_KEY);
@@ -37,50 +53,44 @@
       throw new Error("Your session has expired. Please sign in again.");
     }
 
-    let response;
-    let result;
-
+    setGlobalLoading(true);
     try {
-      response = await fetch(config.API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8"
-        },
-        body: JSON.stringify({
-          action,
-          token: getToken(),
-          ...payload
-        }),
-        redirect: "follow"
-      });
+      let response;
+      let result;
+      try {
+        response = await fetch(config.API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({
+            action,
+            token: getToken(),
+            ...payload
+          }),
+          redirect: "follow"
+        });
 
-      if (!response.ok) {
-        throw new Error("The server returned an HTTP error.");
+        if (!response.ok) {
+          throw new Error("The server returned an HTTP error.");
+        }
+
+        result = await response.json();
+      } catch (error) {
+        if (error.message?.includes("session has expired")) throw error;
+        throw new Error("Unable to contact the server. Check your internet connection and Apps Script deployment.");
       }
 
-      result = await response.json();
-    } catch (error) {
-      if (error.message?.includes("session has expired")) {
-        throw error;
+      if (result.code === "SESSION_EXPIRED" || result.code === "SESSION_INVALID") {
+        clearSession();
+        window.location.replace("index.html");
+        throw new Error("Your session has expired. Please sign in again.");
       }
-
-      throw new Error(
-        "Unable to contact the server. Check your internet connection and Apps Script deployment."
-      );
+      if (!result.success) throw new Error(result.message || "The request failed.");
+      return result;
+    } finally {
+      setGlobalLoading(false);
     }
-
-    if (result.code === "SESSION_EXPIRED" ||
-        result.code === "SESSION_INVALID") {
-      clearSession();
-      window.location.replace("index.html");
-      throw new Error("Your session has expired. Please sign in again.");
-    }
-
-    if (!result.success) {
-      throw new Error(result.message || "The request failed.");
-    }
-
-    return result;
   }
 
   function renderNavbar(activePath = "") {

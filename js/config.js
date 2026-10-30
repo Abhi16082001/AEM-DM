@@ -43,6 +43,7 @@ window.APP_CONFIG = {
     { id: "staff-management", title: "Staff Management", description: "Record staff payments and remarks.", path: "master-data.html?feature=staffManagement", icon: "S", color: "#f4b6c2" },
     { id: "statement", title: "Statement Management", description: "Record bank debit and credit statements.", path: "master-data.html?feature=statement", icon: "T", color: "#c4e6a4" },
     { id: "bank", title: "Add Bank Account", description: "Add and maintain bank accounts.", path: "master-data.html?feature=bank", icon: "B", color: "#d7c4f2" },
+    { id: "data-type", title: "Data Type", description: "Create and manage unique data types.", path: "master-data.html?feature=dataType", icon: "D", color: "#f1c9db" },
     { id: "projects", title: "Project Management", description: "Create and manage client projects.", path: "master-data.html?feature=projects", icon: "P", color: "#8cc5bd" },
     { id: "analyze-work", title: "Analyze Work", description: "Read and filter work records.", path: "analysis.html?feature=work", icon: "W", color: "#a9d7ea" },
     { id: "analyze-statement", title: "Analyze Statement", description: "Read and filter statement entries.", path: "analysis.html?feature=statement", icon: "T", color: "#b8e2bd" },
@@ -229,12 +230,14 @@ BILLERS: {
       ]
     },
     work: {
-      resource: "work", title: "Work Management", singular: "Work Record", sheetName: "Work",
+      resource: "work", title: "Work Management", singular: "Work Record", sheetName: "Work", primaryKey: "WorkId", autoId: true,
       calculation: { target: "Total", left: "Quantity", right: "Rate", label: "Calculate Total" },
       fields: [
+        { name: "WorkId", label: "Work ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "Vehicle", label: "Vehicle", type: "lookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: true, editable: true, visibleInTable: true },
-        { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: true, editable: true, visibleInTable: true },
+        { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true },
+        { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.Id})`, required: false, editable: true, visibleInTable: true },
         { name: "SiteAddress", label: "Site Address", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 },
         { name: "Quantity", label: "Quantity", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Night", label: "Night", type: "checkbox", required: false, editable: true, visibleInTable: true },
@@ -275,6 +278,12 @@ BILLERS: {
         { name: "To/From", label: "To/From", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 250 },
         { name: "BillNo", label: "Bill No.", type: "text", required: false, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
+      ]
+    },
+    dataType: {
+      resource: "dataType", title: "Data Type", singular: "Data Type", sheetName: "DataType", primaryKey: "Data Type Name",
+      fields: [
+        { name: "Data Type Name", label: "Data Type Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 }
       ]
     },
     projects: {

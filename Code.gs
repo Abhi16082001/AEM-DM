@@ -334,14 +334,66 @@ function createClientWorkSheet_(id, name, workHeaders) {
     return sheet;
   }
 
-  const existingHeaders = sheet.getLastColumn()
+  ensureWorkSheetHeaders_(sheet, sheetName, workHeaders, "Client");
+  return sheet;
+}
+
+// Existing client tabs were created before the Project column existed. Migrate
+// that one safe, known change without disturbing any saved work rows.
+function ensureWorkSheetHeaders_(sheet, sheetName, workHeaders, kind) {
+  let existingHeaders = sheet.getLastColumn()
     ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0].map(value => String(value).trim())
     : [];
+  const projectColumn = workHeaders.indexOf("Project");
+  const headersWithoutProject = workHeaders.filter(header => header !== "Project");
+  if (projectColumn !== -1 && existingHeaders.length === headersWithoutProject.length &&
+      existingHeaders.every((value, index) => value === headersWithoutProject[index])) {
+    sheet.insertColumnBefore(projectColumn + 1);
+    sheet.getRange(1, projectColumn + 1).setValue("Project");
+    existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0]
+      .map(value => String(value).trim());
+  }
   if (existingHeaders.length !== workHeaders.length ||
       existingHeaders.some((value, index) => value !== workHeaders[index])) {
-    throw new Error('Client work sheet "' + sheetName + '" does not match the Work sheet columns.');
+    throw new Error(kind + ' work sheet "' + sheetName + '" does not match the Work sheet columns.');
+  }
+}
+
+/** The separate spreadsheet that stores one Work sheet per project. */
+function getProjectSpreadsheet_() {
+  const id = PropertiesService.getScriptProperties()
+    .getProperty("PROJECTSPREADSHEET_ID");
+
+  if (!id) {
+    throw new Error("Set PROJECTSPREADSHEET_ID in Script Properties.");
   }
 
+  return SpreadsheetApp.openById(id);
+}
+
+function projectWorkSheetName_(id, name) {
+  const sheetName = String(name || "").trim() + "(" + String(id).trim() + ")";
+  const hasInvalidCharacter = ["[", "]", "*", "?", "/", String.fromCharCode(92), ":"]
+    .some(character => sheetName.includes(character));
+  if (!sheetName || sheetName.length > 100 || hasInvalidCharacter) {
+    throw new Error("Project Name and ID cannot be used as a project work-sheet name.");
+  }
+  return sheetName;
+}
+
+function createProjectWorkSheet_(id, name, workHeaders) {
+  const spreadsheet = getProjectSpreadsheet_();
+  const sheetName = projectWorkSheetName_(id, name);
+  let sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, workHeaders.length).setValues([workHeaders]);
+    sheet.setFrozenRows(1);
+    return sheet;
+  }
+
+  ensureWorkSheetHeaders_(sheet, sheetName, workHeaders, "Project");
   return sheet;
 }
 

@@ -134,6 +134,10 @@
       const input = event.currentTarget.elements.namedItem(field.name);
       const value = field.type === "checkbox" ? String(input.checked) : input.value.trim();
       if (field.type === "lookup" || field.type === "options") {
+        if (!value && !field.required) {
+          data[field.name] = "";
+          continue;
+        }
         const choice = (lookupValues[field.name] || []).find(item => item.label === value);
         if (!choice) { status($("form-status"), `Select a valid ${field.label}.`, "error"); return; }
         data[field.name] = choice.key;
