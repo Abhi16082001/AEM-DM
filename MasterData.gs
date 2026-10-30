@@ -10,7 +10,7 @@ const MASTER_DATA_RESOURCES = {
   staffTypes: { sheetName: "Types", initialHeaders: ["Vehicle Type Name", "Staff Type Name"], primaryKey: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true },
   vehicles: { sheetName: "Vehicles", initialHeaders: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
   staff: { sheetName: "Staff", initialHeaders: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true },
-  work: { sheetName: "Work", initialHeaders: ["WorkId", "Date", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Staff", "Remarks"], primaryKey: "WorkId", required: ["Date", "Vehicle", "Quantity", "Rate", "Total", "Staff"], autoId: true },
+  work: { sheetName: "Work", initialHeaders: ["WorkId", "DataType", "Description", "Date", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Vehicle", "Quantity", "Rate", "Total", "Staff"], autoId: true },
   staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
   statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
@@ -84,7 +84,8 @@ function validateMasterData_(resource, headers, data) {
     const value = data[header];
     if (value !== undefined && value !== null && typeof value === "object") throw new Error("Field values must be plain text.");
     clean[header] = String(value || "").trim();
-    if (clean[header].length > 1000) throw new Error("A field value is too long.");
+    const maxLength = resource.sheetName === "Work" && header === "Description" ? 5000 : 1000;
+    if (clean[header].length > maxLength) throw new Error("A field value is too long.");
   });
   resource.required.forEach(header => {
     if (!clean[header] && !(resource.autoId && header === resource.primaryKey)) {
@@ -117,6 +118,7 @@ function validateMasterDataLookup_(resourceName, clean) {
     if (!types.includes(clean.Type)) throw new Error("Select a valid staff type.");
   }
   if (resourceName === "work") {
+    if (!masterDataKeyExists_("dataType", clean.DataType)) throw new Error("Select a valid data type.");
     if (!masterDataKeyExists_("vehicles", clean.Vehicle)) throw new Error("Select a valid vehicle.");
     if (!clean.Client && !clean.Project) throw new Error("Select at least a client or a project.");
     if (clean.Client && !readClients_().clients.some(client => String(client.Id) === clean.Client)) {

@@ -234,6 +234,8 @@ BILLERS: {
       calculation: { target: "Total", left: "Quantity", right: "Rate", label: "Calculate Total" },
       fields: [
         { name: "WorkId", label: "Work ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
+        { name: "DataType", label: "Data Type", type: "lookup", lookupResource: "dataType", lookupKey: "Data Type Name", lookupDisplay: record => record["Data Type Name"], required: true, editable: true, visibleInTable: true },
+        { name: "Description", label: "Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "Vehicle", label: "Vehicle", type: "lookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: true, editable: true, visibleInTable: true },
         { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true },
