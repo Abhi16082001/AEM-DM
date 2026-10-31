@@ -307,6 +307,7 @@ BILLERS: {
 window.APP_CONFIG.ANALYSIS = {
   work: {
     resource: "work", title: "Analyze Work", singular: "Work Record", totalField: "Total", totalLabel: "work record(s)",
+    groupColors: [{ background: "#a2bde1", color: "#17307d" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: [
       ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => Object.assign({}, field, { required: false })),
       { name: "Vehicle Type", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, visibleInTable: true },
@@ -315,10 +316,12 @@ window.APP_CONFIG.ANALYSIS = {
   },
   statement: {
     resource: "statement", title: "Analyze Statement", singular: "Statement Entry",
+    groupColors: [{ background: "#dbeafe", color: "#1e3a8a" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: window.APP_CONFIG.MASTER_DATA.statement.fields.map(field => Object.assign({}, field, { required: false }))
   },
   staff: {
     resource: "staffManagement", title: "Analyze Staff", singular: "Staff Payment", totalField: "Amount", totalLabel: "staff payment(s)",
+    groupColors: [{ background: "#dbeafe", color: "#1e3a8a" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: [
       ...window.APP_CONFIG.MASTER_DATA.staffManagement.fields.map(field => Object.assign({}, field, { required: false })),
       { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }

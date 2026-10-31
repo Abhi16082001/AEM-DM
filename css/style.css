@@ -1064,3 +1064,8 @@ table.data-table td {
   color:rgb(4, 75, 4);
   border:darkgreen solid 1px;
 }
+.field-group > select{
+  padding:15px 10px;
+  border:lightgray solid 1px;
+  border-radius:10px;
+}

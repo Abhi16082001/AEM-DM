@@ -22,6 +22,10 @@
       <div class="panel-heading"><div><h2>Filters</h2><p class="muted">All filters are optional. Analysis is read-only.</p></div></div>
       <form id="analysis-form">
         <div id="analysis-fields" class="form-grid"></div>
+        <div class="form-grid analysis-sort-fields">
+          <div class="field-group"><label for="sort-by">Sort By</label><select id="sort-by" name="sortBy"></select></div>
+          <div class="field-group"><label for="sort-order">Order</label><select id="sort-order" name="sortOrder"><option value="asc">Ascending</option><option value="desc">Descending</option></select></div>
+        </div>
         <div class="form-actions">
           <button class="button button-primary" type="submit">Apply Filters</button>
           <button id="clear-button" class="button button-secondary" type="button">Clear Filters</button>

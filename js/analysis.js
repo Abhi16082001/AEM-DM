@@ -27,6 +27,57 @@
     return match ? match.label : value;
   };
 
+  function selectedSortField() {
+    return fields.find(field => field.name === $("sort-by").value);
+  }
+
+  function sortValue(field, value) {
+    const text = String(value ?? "").trim();
+    if (field.type === "date") {
+      const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (iso) return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+      // Sheets in this application use day/month/year display dates.
+      const dayFirst = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (dayFirst) return Date.UTC(Number(dayFirst[3]), Number(dayFirst[2]) - 1, Number(dayFirst[1]));
+      const parsed = Date.parse(text);
+      return Number.isNaN(parsed) ? text.toLocaleLowerCase() : parsed;
+    }
+    const numeric = text.replace(/,/g, "");
+    if (numeric && /^-?\d+(?:\.\d+)?$/.test(numeric)) return Number(numeric);
+    return text.toLocaleLowerCase();
+  }
+
+  function compareSortValues(left, right) {
+    if (typeof left === "number" && typeof right === "number") return left - right;
+    return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
+  }
+
+  function applySort() {
+    const field = selectedSortField();
+    if (!field) return;
+    const direction = $("sort-order").value === "desc" ? -1 : 1;
+    records = records.map((record, index) => ({ record, index, value: sortValue(field, record[field.name]) }))
+      .sort((left, right) => {
+        const comparison = compareSortValues(left.value, right.value);
+        return comparison ? comparison * direction : left.index - right.index;
+      })
+      .map(item => item.record);
+  }
+
+  function groupStyle(record, previousRecord, currentGroup) {
+    const field = selectedSortField();
+    if (!field) return { inline: "", group: currentGroup };
+    const isNewGroup = !previousRecord ||
+      compareSortValues(sortValue(field, previousRecord[field.name]), sortValue(field, record[field.name])) !== 0;
+    const group = isNewGroup && previousRecord ? currentGroup + 1 : currentGroup;
+    const colors = config.groupColors || [];
+    const color = colors[group % colors.length];
+    return {
+      inline: color ? ` style="background-color:${color.background};color:${color.color}"` : "",
+      group
+    };
+  }
+
   function fieldHtml(field) {
     const id = fieldId(field);
     let control;
@@ -71,6 +122,18 @@
     $("records-body").innerHTML = records.map(record => `<tr>${fields.map(field =>
       `<td>${escape(field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "—")}</td>`
     ).join("")}</tr>`).join("");
+    let previousRecord = null;
+    let currentGroup = 0;
+    [...$("records-body").rows].forEach((row, index) => {
+      const style = groupStyle(records[index], previousRecord, currentGroup);
+      previousRecord = records[index];
+      currentGroup = style.group;
+      if (style.inline) {
+        const colors = (config.groupColors || [])[currentGroup % (config.groupColors || []).length];
+        row.style.backgroundColor = colors.background;
+        row.style.color = colors.color;
+      }
+    });
     window.App.paginateTable($("records-body"));
   }
 
@@ -135,6 +198,7 @@
       status($("table-status"), "Loading results…");
       const result = await window.App.apiRequest("analyzeMasterData", { resource: config.resource, filters: filtersFromForm() });
       records = result.records || [];
+      applySort();
       buildTable();
       $("calculated-total").textContent = "";
       $("calculate-total-button").hidden = !totalField || !records.length;
@@ -150,8 +214,12 @@
   }
 
   $("analysis-fields").innerHTML = fields.map(fieldHtml).join("");
+  $("sort-by").innerHTML = '<option value="">No sorting</option>' + fields
+    .map(field => `<option value="${escape(field.name)}">${escape(field.label)}</option>`).join("");
   $("calculate-total-button").addEventListener("click", calculateTotal);
   $("download-button").addEventListener("click", downloadFilteredRecords);
+  $("sort-by").addEventListener("change", () => { applySort(); buildTable(); });
+  $("sort-order").addEventListener("change", () => { applySort(); buildTable(); });
   $("analysis-form").addEventListener("submit", event => { event.preventDefault(); status($("filter-status"), ""); runAnalysis(); });
   $("clear-button").addEventListener("click", () => { $("analysis-form").reset(); status($("filter-status"), ""); runAnalysis(); });
   $("refresh-button").addEventListener("click", runAnalysis);
