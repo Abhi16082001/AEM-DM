@@ -33,7 +33,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -187,7 +188,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, .12);
 }
@@ -195,6 +197,10 @@ textarea:focus {
 textarea {
   min-height: 95px;
   resize: vertical;
+}
+
+select[multiple] {
+  min-height: 112px;
 }
 
 .login-card input + label {

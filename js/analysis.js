@@ -11,6 +11,7 @@
   const lookupValues = {};
   const fields = config.fields;
   const totalField = config.totalField;
+  const calculationFields = config.calculationFields || (totalField ? [{ field: totalField, label: "Calculate Total" }] : []);
   let records = [];
 
   $("page-title").textContent = config.title;
@@ -23,6 +24,12 @@
   };
   const fieldId = field => `filter-${field.name.replace(/[^a-z0-9]/gi, "-")}`;
   const lookupDisplay = (field, value) => {
+    if (field.type === "multilookup") {
+      return String(value || "").split(",").map(key => {
+        const match = (lookupValues[field.name] || []).find(item => item.key === key.trim());
+        return match ? match.label : key.trim();
+      }).filter(Boolean).join(", ");
+    }
     const match = (lookupValues[field.name] || []).find(item => item.key === String(value));
     return match ? match.label : value;
   };
@@ -81,7 +88,7 @@
   function fieldHtml(field) {
     const id = fieldId(field);
     let control;
-    if (field.type === "lookup" || field.type === "options") {
+    if (field.type === "lookup" || field.type === "multilookup" || field.type === "options") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off"><datalist id="${id}-options"></datalist>`;
     } else if (field.type === "checkbox") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off"><datalist id="${id}-options"><option value="true">True</option><option value="false">False</option></datalist>`;
@@ -94,7 +101,7 @@
   }
 
   async function loadLookups() {
-    const lookupFields = fields.filter(field => field.type === "lookup" || field.type === "options");
+    const lookupFields = fields.filter(field => field.type === "lookup" || field.type === "multilookup" || field.type === "options");
     await Promise.all(lookupFields.map(async field => {
       if (field.type === "options") {
         lookupValues[field.name] = (field.options || []).map(value => ({ key: value, label: value }));
@@ -120,7 +127,7 @@
       return;
     }
     $("records-body").innerHTML = records.map(record => `<tr>${fields.map(field =>
-      `<td>${escape(field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "—")}</td>`
+      `<td>${escape((field.type === "lookup" || field.type === "multilookup") ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "—")}</td>`
     ).join("")}</tr>`).join("");
     let previousRecord = null;
     let currentGroup = 0;
@@ -137,15 +144,30 @@
     window.App.paginateTable($("records-body"));
   }
 
-  function calculateTotal() {
+  function calculateColumn(field, label) {
     const total = records.reduce((sum, record) => {
       // Totals are saved as text, so accept standard comma-formatted amounts
       // while ignoring blank values.
-      const raw = String(record[totalField] ?? "").replace(/,/g, "").trim();
+      const raw = String(record[field] ?? "").replace(/,/g, "").trim();
       const value = raw ? Number(raw) : 0;
       return sum + (Number.isFinite(value) ? value : 0);
     }, 0);
-    status($("calculated-total"), `Total of all ${records.length} filtered ${config.totalLabel || "record(s)"}: ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, "success");
+    status($("calculated-total"), `${label}: ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })} across ${records.length} filtered ${config.totalLabel || "record(s)"}.`, "success");
+  }
+
+  function renderCalculationButtons() {
+    $("calculation-buttons").innerHTML = calculationFields.map((calculation, index) =>
+      `<button id="calculate-button-${index}" class="button button-secondary" type="button" hidden>${escape(calculation.label)}</button>`
+    ).join("");
+    calculationFields.forEach((calculation, index) => {
+      $("calculate-button-" + index).addEventListener("click", () => calculateColumn(calculation.field, calculation.label));
+    });
+  }
+
+  function setCalculationButtonsVisible(visible) {
+    calculationFields.forEach((calculation, index) => {
+      $("calculate-button-" + index).hidden = !visible;
+    });
   }
 
   function excelCsvValue(value) {
@@ -160,7 +182,7 @@
     const rows = [
       fields.map(field => field.label),
       ...records.map(record => fields.map(field =>
-        field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? ""
+        (field.type === "lookup" || field.type === "multilookup") ? lookupDisplay(field, record[field.name]) : record[field.name] ?? ""
       ))
     ];
     // CSV is supported directly by Excel and preserves every filtered record,
@@ -182,7 +204,7 @@
     for (const field of fields) {
       const raw = $("analysis-form").elements.namedItem(field.name).value.trim();
       if (!raw) continue;
-      if (field.type === "lookup" || field.type === "options") {
+      if (field.type === "lookup" || field.type === "multilookup" || field.type === "options") {
         const choice = (lookupValues[field.name] || []).find(item => item.label === raw);
         if (!choice) throw new Error(`Select a valid ${field.label}.`);
         filters[field.name] = choice.key;
@@ -201,11 +223,11 @@
       applySort();
       buildTable();
       $("calculated-total").textContent = "";
-      $("calculate-total-button").hidden = !totalField || !records.length;
+      setCalculationButtonsVisible(Boolean(records.length));
       $("download-button").hidden = !records.length;
       status($("table-status"), `${records.length} matching record(s).`, "success");
     } catch (error) {
-      $("calculate-total-button").hidden = true;
+      setCalculationButtonsVisible(false);
       $("download-button").hidden = true;
       $("calculated-total").textContent = "";
       status($("filter-status"), error.message, "error");
@@ -216,7 +238,7 @@
   $("analysis-fields").innerHTML = fields.map(fieldHtml).join("");
   $("sort-by").innerHTML = '<option value="">No sorting</option>' + fields
     .map(field => `<option value="${escape(field.name)}">${escape(field.label)}</option>`).join("");
-  $("calculate-total-button").addEventListener("click", calculateTotal);
+  renderCalculationButtons();
   $("download-button").addEventListener("click", downloadFilteredRecords);
   $("sort-by").addEventListener("change", () => { applySort(); buildTable(); });
   $("sort-order").addEventListener("change", () => { applySort(); buildTable(); });

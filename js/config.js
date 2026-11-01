@@ -231,13 +231,17 @@ BILLERS: {
     },
     work: {
       resource: "work", title: "Work Management", singular: "Work Record", sheetName: "Work", primaryKey: "WorkId", autoId: true,
-      calculation: { target: "Total", left: "Quantity", right: "Rate", label: "Calculate Total" },
+      calculations: [
+        { target: "Total", inputs: ["Quantity", "Rate"], operation: "multiply", label: "Calculate Total" },
+        { target: "Net Amount", inputs: ["Total", "Diesel", "Additional Charge"], operation: "sum", label: "Calculate Net Amount" }
+      ],
       fields: [
         { name: "WorkId", label: "Work ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "DataType", label: "Data Type", type: "lookup", lookupResource: "dataType", lookupKey: "Data Type Name", lookupDisplay: record => record["Data Type Name"], required: true, editable: true, visibleInTable: true },
         { name: "Description", label: "Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
-        { name: "Vehicle", label: "Vehicle", type: "lookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: true, editable: true, visibleInTable: true },
+        { name: "VehicleType", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, editable: true, visibleInTable: true },
+        { name: "Vehicle", label: "Vehicle", type: "multilookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: false, editable: true, visibleInTable: true },
         { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true },
         { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.Id})`, required: false, editable: true, visibleInTable: true },
         { name: "SiteAddress", label: "Site Address", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 },
@@ -245,7 +249,10 @@ BILLERS: {
         { name: "Night", label: "Night", type: "checkbox", required: false, editable: true, visibleInTable: true },
         { name: "Rate", label: "Rate", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Total", label: "Total", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
-        { name: "Staff", label: "Staff", type: "lookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.Type})`, required: true, editable: true, visibleInTable: true },
+        { name: "Diesel", label: "Diesel", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Additional Charge", label: "Additional Charge", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Net Amount", label: "Net Amount", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "Staff", label: "Staff", type: "multilookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.Type})`, required: false, editable: true, visibleInTable: true },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
     },
@@ -307,10 +314,15 @@ BILLERS: {
 window.APP_CONFIG.ANALYSIS = {
   work: {
     resource: "work", title: "Analyze Work", singular: "Work Record", totalField: "Total", totalLabel: "work record(s)",
+    calculationFields: [
+      { field: "Total", label: "Calculate Total" },
+      { field: "Diesel", label: "Calculate Diesel" },
+      { field: "Additional Charge", label: "Calculate Additional Charge" },
+      { field: "Net Amount", label: "Calculate Net Amount" }
+    ],
     groupColors: [{ background: "#a2bde1", color: "#17307d" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: [
       ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => Object.assign({}, field, { required: false })),
-      { name: "Vehicle Type", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, visibleInTable: true },
       { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
     ]
   },

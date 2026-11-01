@@ -22,6 +22,12 @@
   const escape = window.App.escapeHTML;
   const recordKey = record => config.primaryKey ? record[config.primaryKey] : record._rowId;
   const lookupDisplay = (field, value) => {
+    if (field.type === "multilookup") {
+      return String(value || "").split(",").map(key => {
+        const match = (lookupValues[field.name] || []).find(item => item.key === key.trim());
+        return match ? match.label : key.trim();
+      }).filter(Boolean).join(", ");
+    }
     const match = (lookupValues[field.name] || []).find(item => item.key === String(value));
     return match ? match.label : value;
   };
@@ -33,21 +39,28 @@
     let control;
     if (field.type === "textarea") {
       control = `<textarea id="${id}" name="${escape(field.name)}" rows="3" ${required} ${maxLength}></textarea>`;
+    } else if (field.type === "multilookup") {
+      control = `<select id="${id}" name="${escape(field.name)}" multiple ${required}></select>`;
     } else if (field.type === "lookup" || field.type === "options") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off" ${required} ${maxLength}><datalist id="${id}-options"></datalist>`;
     } else if (field.type === "checkbox") {
       control = `<input id="${id}" name="${escape(field.name)}" type="checkbox">`;
     } else {
-      control = `<input id="${id}" name="${escape(field.name)}" type="${field.type === "date" ? "date" : "text"}" ${required} ${maxLength}>`;
+      const inputType = field.type === "date" ? "date" : field.type === "integer" || field.type === "number" ? "number" : "text";
+      const integerOnly = field.type === "integer" ? 'step="1" inputmode="numeric"' : "";
+      control = `<input id="${id}" name="${escape(field.name)}" type="${inputType}" ${integerOnly} ${required} ${maxLength}>`;
     }
     return `<div class="field-group"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark">*</span>' : ""}</label>${control}</div>`;
   }
 
   function buildForm() {
-    $("master-fields").innerHTML = fields.map(fieldHtml).join("") + (config.calculation
-      ? `<div class="field-group"><label>&nbsp;</label><button id="calculate-button" class="button button-secondary" type="button">${escape(config.calculation.label)}</button></div>`
-      : "");
-    if (config.calculation) $("calculate-button").addEventListener("click", calculateTotal);
+    const calculations = config.calculations || (config.calculation ? [config.calculation] : []);
+    $("master-fields").innerHTML = fields.map(fieldHtml).join("") + calculations.map((calculation, index) =>
+      `<div class="field-group"><label>&nbsp;</label><button id="calculate-button-${index}" class="button button-secondary" type="button">${escape(calculation.label)}</button></div>`
+    ).join("");
+    calculations.forEach((calculation, index) => {
+      $("calculate-button-" + index).addEventListener("click", () => calculateValue(calculation));
+    });
   }
   function buildTableHeader() {
     $("records-head").innerHTML = `<tr>${tableFields.map(f => `<th scope="col">${escape(f.label)}</th>`).join("")}<th scope="col" class="actions-column">Actions</th></tr>`;
@@ -64,7 +77,7 @@
     }
     $("records-body").innerHTML = records.map(record => {
       const key = escape(recordKey(record));
-      return `<tr>${tableFields.map(f => `<td>${escape(f.type === "lookup" ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—")}</td>`).join("")}<td><div class="row-actions">
+      return `<tr>${tableFields.map(f => `<td>${escape((f.type === "lookup" || f.type === "multilookup") ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—")}</td>`).join("")}<td><div class="row-actions">
         <button class="icon-button" type="button" data-action="view" data-key="${key}" title="View">⌕</button>
         <button class="icon-button" type="button" data-action="edit" data-key="${key}" title="Edit">✎</button>
         <button class="icon-button danger btn btn-danger" type="button" data-action="delete" data-key="${key}" title="Delete">⌫</button>
@@ -73,7 +86,7 @@
     window.App.paginateTable($("records-body"));
   }
   async function loadLookups() {
-    const lookupFields = fields.filter(f => f.type === "lookup" || f.type === "options");
+    const lookupFields = fields.filter(f => f.type === "lookup" || f.type === "multilookup" || f.type === "options");
     await Promise.all(lookupFields.map(async field => {
       if (field.type === "options") {
         lookupValues[field.name] = field.options.map(value => ({ key: value, label: value }));
@@ -89,8 +102,15 @@
           label: String(field.lookupDisplay ? field.lookupDisplay(record) : record[keyField] || "")
         })).filter(item => item.key && item.label);
       }
-      const list = $("field-" + field.name.replace(/[^a-z0-9]/gi, "-") + "-options");
-      list.innerHTML = lookupValues[field.name].map(item => `<option value="${escape(item.label)}"></option>`).join("");
+      const control = $("field-" + field.name.replace(/[^a-z0-9]/gi, "-"));
+      if (field.type === "multilookup") {
+        control.innerHTML = lookupValues[field.name].map(item =>
+          `<option value="${escape(item.key)}">${escape(item.label)}</option>`
+        ).join("");
+      } else {
+        const list = $(control.id + "-options");
+        list.innerHTML = lookupValues[field.name].map(item => `<option value="${escape(item.label)}"></option>`).join("");
+      }
     }));
   }
   async function setSuggestedId() {
@@ -116,14 +136,17 @@
     fields.forEach(field => {
       const input = $("master-form").elements.namedItem(field.name);
       if (field.type === "checkbox") input.checked = String(record[field.name]).toLowerCase() === "true";
-      else input.value = field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "";
+      else if (field.type === "multilookup") {
+        const selected = new Set(String(record[field.name] || "").split(",").map(value => value.trim()));
+        [...input.options].forEach(option => { option.selected = selected.has(option.value); });
+      } else input.value = field.type === "lookup" ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "";
     });
     $("form-title").textContent = `Edit ${config.singular}`; $("save-button").textContent = `Update ${config.singular}`; $("cancel-button").hidden = false;
     $("master-form").scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function showDetails(record) {
     $("dialog-title").textContent = `${config.singular} Details`;
-    $("record-details").innerHTML = fields.map(f => `<div class="detail-item"><span>${escape(f.label)}</span><p>${escape(f.type === "lookup" ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—") || "—"}</p></div>`).join("");
+    $("record-details").innerHTML = fields.map(f => `<div class="detail-item"><span>${escape(f.label)}</span><p>${escape((f.type === "lookup" || f.type === "multilookup") ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—") || "—"}</p></div>`).join("");
     $("record-dialog").showModal();
   }
 
@@ -132,7 +155,8 @@
     const data = {};
     for (const field of fields) {
       const input = event.currentTarget.elements.namedItem(field.name);
-      const value = field.type === "checkbox" ? String(input.checked) : input.value.trim();
+      const value = field.type === "checkbox" ? String(input.checked) : field.type === "multilookup"
+        ? [...input.selectedOptions].map(option => option.value).join(",") : input.value.trim();
       if (field.type === "lookup" || field.type === "options") {
         if (!value && !field.required) {
           data[field.name] = "";
@@ -169,13 +193,17 @@
   $("refresh-button").addEventListener("click", async () => { await loadLookups(); await loadRecords(); });
   $("close-dialog").addEventListener("click", () => $("record-dialog").close());
 
-  function calculateTotal() {
+  function calculateValue(calculation) {
     const parseNumber = value => {
       const match = String(value || "").replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
       return match ? Number(match[0]) : 0;
     };
-    const { left, right, target } = config.calculation;
-    $("master-form").elements.namedItem(target).value = (parseNumber($("master-form").elements.namedItem(left).value) * parseNumber($("master-form").elements.namedItem(right).value)).toFixed(2);
+    const inputs = calculation.inputs || [calculation.left, calculation.right];
+    const values = inputs.map(name => parseNumber($("master-form").elements.namedItem(name).value));
+    const result = calculation.operation === "sum"
+      ? values.reduce((total, value) => total + value, 0)
+      : values.reduce((total, value) => total * value, 1);
+    $("master-form").elements.namedItem(calculation.target).value = String(result);
   }
 
   buildForm(); buildTableHeader();

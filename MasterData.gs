@@ -10,7 +10,7 @@ const MASTER_DATA_RESOURCES = {
   staffTypes: { sheetName: "Types", initialHeaders: ["Vehicle Type Name", "Staff Type Name"], primaryKey: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true },
   vehicles: { sheetName: "Vehicles", initialHeaders: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
   staff: { sheetName: "Staff", initialHeaders: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true },
-  work: { sheetName: "Work", initialHeaders: ["WorkId", "DataType", "Description", "Date", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Vehicle", "Quantity", "Rate", "Total", "Staff"], autoId: true },
+  work: { sheetName: "Work", initialHeaders: ["WorkId", "DataType", "Description", "Date", "VehicleType", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Quantity", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount"], autoId: true },
   staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
   statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
@@ -119,7 +119,13 @@ function validateMasterDataLookup_(resourceName, clean) {
   }
   if (resourceName === "work") {
     if (!masterDataKeyExists_("dataType", clean.DataType)) throw new Error("Select a valid data type.");
-    if (!masterDataKeyExists_("vehicles", clean.Vehicle)) throw new Error("Select a valid vehicle.");
+    ["Diesel", "Additional Charge", "Net Amount"].forEach(header => {
+      if (!/^-?\d+$/.test(String(clean[header] || ""))) {
+        throw new Error(header + " must be an integer.");
+      }
+    });
+    if (clean.VehicleType && !masterDataKeyExists_("vehicleTypes", clean.VehicleType)) throw new Error("Select a valid vehicle type.");
+    validateDelimitedMasterDataKeys_("vehicles", clean.Vehicle, "Select valid vehicle values.");
     if (!clean.Client && !clean.Project) throw new Error("Select at least a client or a project.");
     if (clean.Client && !readClients_().clients.some(client => String(client.Id) === clean.Client)) {
       throw new Error("Select a valid client.");
@@ -127,7 +133,7 @@ function validateMasterDataLookup_(resourceName, clean) {
     if (clean.Project && !masterDataKeyExists_("projects", clean.Project)) {
       throw new Error("Select a valid project.");
     }
-    if (!masterDataKeyExists_("staff", clean.Staff)) throw new Error("Select a valid staff member.");
+    validateDelimitedMasterDataKeys_("staff", clean.Staff, "Select valid staff member values.");
   }
   if (resourceName === "staffManagement" && !masterDataKeyExists_("staff", clean.Staff)) {
     throw new Error("Select a valid staff member.");
@@ -143,6 +149,14 @@ function validateMasterDataLookup_(resourceName, clean) {
   if (resourceName === "bank" && !["Saving", "Current"].includes(clean["Saving/Current"])) {
     throw new Error("Select Saving or Current.");
   }
+}
+
+function validateDelimitedMasterDataKeys_(resourceName, value, message) {
+  const keys = String(value || "").split(",").map(item => item.trim()).filter(Boolean);
+  if (!keys.length) return;
+  const resource = getMasterDataResource_(resourceName);
+  const valid = new Set(readMasterData_(resourceName).records.map(record => String(record[resource.primaryKey])));
+  if (keys.some(key => !valid.has(key))) throw new Error(message);
 }
 
 function masterDataKeyExists_(resourceName, key) {
@@ -340,7 +354,7 @@ function deleteMasterData_(resourceName, idValue) {
 
 function analysisFields_(resourceName, headers) {
   const derived = {
-    work: ["Vehicle Type", "Staff Type"],
+    work: ["Staff Type"],
     staffManagement: ["Staff Type"],
     statement: []
   };
@@ -398,17 +412,18 @@ function analyzeMasterData_(resourceName, filters) {
     source = Object.assign({}, result, { records });
   }
 
-  const vehicles = resourceName === "work" ? readMasterData_("vehicles").records : [];
   const staff = (resourceName === "work" || resourceName === "staffManagement")
     ? readMasterData_("staff").records : [];
 
   const records = source.records.map(record => {
     const enriched = Object.assign({}, record);
     if (resourceName === "work") {
-      const vehicle = vehicles.find(item => String(item["Vehicle No"]) === String(record.Vehicle));
-      const staffMember = staff.find(item => String(item.Id) === String(record.Staff));
-      enriched["Vehicle Type"] = vehicle ? vehicle.Type : "";
-      enriched["Staff Type"] = staffMember ? staffMember.Type : "";
+      const staffIds = String(record.Staff || "").split(",").map(value => value.trim()).filter(Boolean);
+      const staffTypes = staffIds.map(id => {
+        const staffMember = staff.find(item => String(item.Id) === id);
+        return staffMember ? staffMember.Type : "";
+      }).filter(Boolean);
+      enriched["Staff Type"] = staffTypes.filter((value, index) => staffTypes.indexOf(value) === index).join(", ");
     }
     if (resourceName === "staffManagement") {
       const staffMember = staff.find(item => String(item.Id) === String(record.Staff));
