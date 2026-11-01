@@ -322,7 +322,11 @@ window.APP_CONFIG.ANALYSIS = {
     ],
     groupColors: [{ background: "#a2bde1", color: "#17307d" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: [
-      ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => Object.assign({}, field, { required: false })),
+      ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => {
+        const analysisField = Object.assign({}, field, { required: false });
+        return ["Vehicle", "Client", "Project"].includes(field.name)
+          ? Object.assign(analysisField, { type: "multilookup" }) : analysisField;
+      }),
       { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
     ]
   },

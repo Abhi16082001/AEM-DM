@@ -88,7 +88,11 @@
   function fieldHtml(field) {
     const id = fieldId(field);
     let control;
-    if (field.type === "lookup" || field.type === "multilookup" || field.type === "options") {
+    if (field.type === "date") {
+      control = `<div class="date-range-inputs"><label>From<input id="${id}-from" name="${escape(field.name)}From" type="date"></label><label>To<input id="${id}-to" name="${escape(field.name)}To" type="date"></label></div>`;
+    } else if (field.type === "multilookup") {
+      control = `<select id="${id}" name="${escape(field.name)}" multiple></select>`;
+    } else if (field.type === "lookup" || field.type === "options") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off"><datalist id="${id}-options"></datalist>`;
     } else if (field.type === "checkbox") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off"><datalist id="${id}-options"><option value="true">True</option><option value="false">False</option></datalist>`;
@@ -114,8 +118,15 @@
           label: String(field.lookupDisplay ? field.lookupDisplay(record) : record[keyField] || "")
         })).filter(item => item.key && item.label);
       }
-      const list = $(fieldId(field) + "-options");
-      list.innerHTML = lookupValues[field.name].map(item => `<option value="${escape(item.label)}"></option>`).join("");
+      const control = $(fieldId(field));
+      if (field.type === "multilookup") {
+        control.innerHTML = lookupValues[field.name].map(item =>
+          `<option value="${escape(item.key)}">${escape(item.label)}</option>`
+        ).join("");
+      } else {
+        const list = $(fieldId(field) + "-options");
+        list.innerHTML = lookupValues[field.name].map(item => `<option value="${escape(item.label)}"></option>`).join("");
+      }
     }));
   }
 
@@ -202,9 +213,20 @@
   function filtersFromForm() {
     const filters = {};
     for (const field of fields) {
-      const raw = $("analysis-form").elements.namedItem(field.name).value.trim();
+      if (field.type === "date") {
+        const from = $("analysis-form").elements.namedItem(field.name + "From").value;
+        const to = $("analysis-form").elements.namedItem(field.name + "To").value;
+        if (from) filters[field.name + "From"] = from;
+        if (to) filters[field.name + "To"] = to;
+        continue;
+      }
+      const input = $("analysis-form").elements.namedItem(field.name);
+      const raw = field.type === "multilookup"
+        ? [...input.selectedOptions].map(option => option.value).join(",") : input.value.trim();
       if (!raw) continue;
-      if (field.type === "lookup" || field.type === "multilookup" || field.type === "options") {
+      if (field.type === "multilookup") {
+        filters[field.name] = raw;
+      } else if (field.type === "lookup" || field.type === "options") {
         const choice = (lookupValues[field.name] || []).find(item => item.label === raw);
         if (!choice) throw new Error(`Select a valid ${field.label}.`);
         filters[field.name] = choice.key;

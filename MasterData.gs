@@ -364,12 +364,36 @@ function analysisFields_(resourceName, headers) {
   return headers.concat(derived[resourceName]);
 }
 
+function analysisDateValue_(value) {
+  const text = analysisText_(value);
+  let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) return match[1] + ("0" + match[2]).slice(-2) + ("0" + match[3]).slice(-2);
+  // Spreadsheet date cells are displayed as day/month/year in this app.
+  match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) return match[3] + ("0" + match[2]).slice(-2) + ("0" + match[1]).slice(-2);
+  return "";
+}
+
+function analysisDelimitedValues_(value) {
+  return analysisText_(value).split(",").map(item => item.trim()).filter(Boolean);
+}
+
 function analysisText_(value) {
   return String(value == null ? "" : value).trim();
 }
 
 function recordMatchesFilters_(record, filters) {
   return Object.keys(filters).every(field => {
+    if (field === "DateFrom" || field === "DateTo") {
+      const recordDate = analysisDateValue_(record.Date);
+      const boundary = analysisDateValue_(filters[field]);
+      return Boolean(recordDate && boundary && (field === "DateFrom" ? recordDate >= boundary : recordDate <= boundary));
+    }
+    if (field === "Vehicle" || field === "Staff") {
+      const wanted = analysisDelimitedValues_(filters[field]);
+      const recordValues = analysisDelimitedValues_(record[field]);
+      return !wanted.length || wanted.some(value => recordValues.includes(value));
+    }
     const wanted = analysisText_(filters[field]).toLowerCase();
     return !wanted || analysisText_(record[field]).toLowerCase().includes(wanted);
   });
@@ -383,38 +407,63 @@ function analyzeMasterData_(resourceName, filters) {
   const result = readMasterData_(resourceName);
   const allowedFields = analysisFields_(resourceName, result.headers);
   Object.keys(filters).forEach(field => {
-    if (!allowedFields.includes(field)) throw new Error("Invalid analysis filter.");
+    const isDateRange = (field === "DateFrom" || field === "DateTo") && allowedFields.includes("Date");
+    if (!allowedFields.includes(field) && !isDateRange) throw new Error("Invalid analysis filter.");
     if (typeof filters[field] === "object" || analysisText_(filters[field]).length > 1000) {
       throw new Error("Invalid analysis filter value.");
     }
+    if (isDateRange && !analysisDateValue_(filters[field])) throw new Error("Use a valid date.");
   });
 
   let source = result;
-  const selectedClient = resourceName === "work" && analysisText_(filters.Client);
-  if (selectedClient) {
-    const client = readClients_().clients.find(item => String(item.Id) === selectedClient);
-    if (!client) throw new Error("Select a valid client.");
-
-    const clientSheet = createClientWorkSheet_(client.Id, client.Name, result.headers);
-    const lastRow = clientSheet.getLastRow();
-    const values = lastRow < 2 ? [] : clientSheet
-      .getRange(2, 1, lastRow - 1, result.headers.length)
-      .getDisplayValues();
-    const records = values
-      .filter(row => row.some(value => String(value).trim()))
-      .map((row, index) => {
-        const record = { _rowId: String(index + 2) };
-        result.headers.forEach((header, column) => {
-          record[header] = String(row[column] || "").trim();
+  const selectedClients = resourceName === "work" ? analysisDelimitedValues_(filters.Client) : [];
+  const selectedProjects = resourceName === "work" ? analysisDelimitedValues_(filters.Project) : [];
+  if (selectedClients.length || selectedProjects.length) {
+    const selectedRecords = [];
+    const addWorkSheetRecords = sheet => {
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) return;
+      sheet.getRange(2, 1, lastRow - 1, result.headers.length).getDisplayValues()
+        .filter(row => row.some(value => String(value).trim()))
+        .forEach((row, index) => {
+          const record = { _rowId: String(index + 2) };
+          result.headers.forEach((header, column) => { record[header] = String(row[column] || "").trim(); });
+          selectedRecords.push(record);
         });
-        return record;
-      });
-    source = Object.assign({}, result, { records });
+    };
+    const clientsById = {};
+    readClients_().clients.forEach(client => { clientsById[String(client.Id)] = client; });
+    selectedClients.forEach(id => {
+      const client = clientsById[id];
+      if (!client) throw new Error("Select valid client values.");
+      addWorkSheetRecords(createClientWorkSheet_(client.Id, client.Name, result.headers));
+    });
+    const projectsById = {};
+    readMasterData_("projects").records.forEach(project => { projectsById[String(project.Id)] = project; });
+    selectedProjects.forEach(id => {
+      const project = projectsById[id];
+      if (!project) throw new Error("Select valid project values.");
+      addWorkSheetRecords(createProjectWorkSheet_(project.Id, project.ProjectName, result.headers));
+    });
+    const seenWorkIds = {};
+    source = Object.assign({}, result, { records: selectedRecords.filter(record => {
+      const id = analysisText_(record.WorkId);
+      if (!id || seenWorkIds[id]) return false;
+      seenWorkIds[id] = true;
+      return true;
+    }) });
   }
 
   const staff = (resourceName === "work" || resourceName === "staffManagement")
     ? readMasterData_("staff").records : [];
 
+  const rowFilters = Object.assign({}, filters);
+  // Client/project selections decide which mirror tabs are read. Applying
+  // them again would turn a requested union of tabs into an intersection.
+  if (resourceName === "work") {
+    delete rowFilters.Client;
+    delete rowFilters.Project;
+  }
   const records = source.records.map(record => {
     const enriched = Object.assign({}, record);
     if (resourceName === "work") {
@@ -430,7 +479,7 @@ function analyzeMasterData_(resourceName, filters) {
       enriched["Staff Type"] = staffMember ? staffMember.Type : "";
     }
     return enriched;
-  }).filter(record => recordMatchesFilters_(record, filters));
+  }).filter(record => recordMatchesFilters_(record, rowFilters));
 
   return json_({ success: true, records, fields: allowedFields });
 }
