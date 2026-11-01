@@ -10,6 +10,7 @@
   const escape = window.App.escapeHTML;
   const lookupValues = {};
   const fields = config.fields;
+  const tableFields = fields.filter(field => !field.filterOnly);
   const totalField = config.totalField;
   const calculationFields = config.calculationFields || (totalField ? [{ field: totalField, label: "Calculate Total" }] : []);
   let records = [];
@@ -35,7 +36,7 @@
   };
 
   function selectedSortField() {
-    return fields.find(field => field.name === $("sort-by").value);
+    return tableFields.find(field => field.name === $("sort-by").value);
   }
 
   function sortValue(field, value) {
@@ -131,13 +132,13 @@
   }
 
   function buildTable() {
-    $("records-head").innerHTML = `<tr>${fields.map(field => `<th scope="col">${escape(field.label)}</th>`).join("")}</tr>`;
+    $("records-head").innerHTML = `<tr>${tableFields.map(field => `<th scope="col">${escape(field.label)}</th>`).join("")}</tr>`;
     if (!records.length) {
-      $("records-body").innerHTML = `<tr><td colspan="${fields.length}" class="empty-state">No matching records found.</td></tr>`;
+      $("records-body").innerHTML = `<tr><td colspan="${tableFields.length}" class="empty-state">No matching records found.</td></tr>`;
       window.App.paginateTable($("records-body"));
       return;
     }
-    $("records-body").innerHTML = records.map(record => `<tr>${fields.map(field =>
+    $("records-body").innerHTML = records.map(record => `<tr>${tableFields.map(field =>
       `<td>${escape((field.type === "lookup" || field.type === "multilookup") ? lookupDisplay(field, record[field.name]) : record[field.name] ?? "—")}</td>`
     ).join("")}</tr>`).join("");
     let previousRecord = null;
@@ -191,8 +192,8 @@
 
   function downloadFilteredRecords() {
     const rows = [
-      fields.map(field => field.label),
-      ...records.map(record => fields.map(field =>
+      tableFields.map(field => field.label),
+      ...records.map(record => tableFields.map(field =>
         (field.type === "lookup" || field.type === "multilookup") ? lookupDisplay(field, record[field.name]) : record[field.name] ?? ""
       ))
     ];
@@ -258,7 +259,7 @@
   }
 
   $("analysis-fields").innerHTML = fields.map(fieldHtml).join("");
-  $("sort-by").innerHTML = '<option value="">No sorting</option>' + fields
+  $("sort-by").innerHTML = '<option value="">No sorting</option>' + tableFields
     .map(field => `<option value="${escape(field.name)}">${escape(field.label)}</option>`).join("");
   renderCalculationButtons();
   $("download-button").addEventListener("click", downloadFilteredRecords);

@@ -327,6 +327,7 @@ window.APP_CONFIG.ANALYSIS = {
         return ["Vehicle", "Client", "Project"].includes(field.name)
           ? Object.assign(analysisField, { type: "multilookup" }) : analysisField;
       }),
+      { name: "Full Client Data", label: "Full Client Data", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, filterOnly: true },
       { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
     ]
   },

@@ -389,7 +389,7 @@ function recordMatchesFilters_(record, filters) {
       const boundary = analysisDateValue_(filters[field]);
       return Boolean(recordDate && boundary && (field === "DateFrom" ? recordDate >= boundary : recordDate <= boundary));
     }
-    if (field === "Vehicle" || field === "Staff") {
+    if (field === "Vehicle" || field === "Staff" || field === "Client" || field === "Project") {
       const wanted = analysisDelimitedValues_(filters[field]);
       const recordValues = analysisDelimitedValues_(record[field]);
       return !wanted.length || wanted.some(value => recordValues.includes(value));
@@ -408,7 +408,8 @@ function analyzeMasterData_(resourceName, filters) {
   const allowedFields = analysisFields_(resourceName, result.headers);
   Object.keys(filters).forEach(field => {
     const isDateRange = (field === "DateFrom" || field === "DateTo") && allowedFields.includes("Date");
-    if (!allowedFields.includes(field) && !isDateRange) throw new Error("Invalid analysis filter.");
+    const isFullClientData = resourceName === "work" && field === "Full Client Data";
+    if (!allowedFields.includes(field) && !isDateRange && !isFullClientData) throw new Error("Invalid analysis filter.");
     if (typeof filters[field] === "object" || analysisText_(filters[field]).length > 1000) {
       throw new Error("Invalid analysis filter value.");
     }
@@ -418,7 +419,8 @@ function analyzeMasterData_(resourceName, filters) {
   let source = result;
   const selectedClients = resourceName === "work" ? analysisDelimitedValues_(filters.Client) : [];
   const selectedProjects = resourceName === "work" ? analysisDelimitedValues_(filters.Project) : [];
-  if (selectedClients.length || selectedProjects.length) {
+  const fullClientId = resourceName === "work" ? analysisText_(filters["Full Client Data"]) : "";
+  if (fullClientId || selectedClients.length || selectedProjects.length) {
     const selectedRecords = [];
     const addWorkSheetRecords = sheet => {
       const lastRow = sheet.getLastRow();
@@ -431,20 +433,30 @@ function analyzeMasterData_(resourceName, filters) {
           selectedRecords.push(record);
         });
     };
+    const projectsById = {};
+    const projects = readMasterData_("projects").records;
+    projects.forEach(project => { projectsById[String(project.Id)] = project; });
     const clientsById = {};
     readClients_().clients.forEach(client => { clientsById[String(client.Id)] = client; });
-    selectedClients.forEach(id => {
-      const client = clientsById[id];
-      if (!client) throw new Error("Select valid client values.");
+    if (fullClientId) {
+      const client = clientsById[fullClientId];
+      if (!client) throw new Error("Select a valid full client data value.");
       addWorkSheetRecords(createClientWorkSheet_(client.Id, client.Name, result.headers));
-    });
-    const projectsById = {};
-    readMasterData_("projects").records.forEach(project => { projectsById[String(project.Id)] = project; });
-    selectedProjects.forEach(id => {
-      const project = projectsById[id];
-      if (!project) throw new Error("Select valid project values.");
-      addWorkSheetRecords(createProjectWorkSheet_(project.Id, project.ProjectName, result.headers));
-    });
+      projects.filter(project => String(project.ClientId) === fullClientId).forEach(project => {
+        addWorkSheetRecords(createProjectWorkSheet_(project.Id, project.ProjectName, result.headers));
+      });
+    } else {
+      selectedClients.forEach(id => {
+        const client = clientsById[id];
+        if (!client) throw new Error("Select valid client values.");
+        addWorkSheetRecords(createClientWorkSheet_(client.Id, client.Name, result.headers));
+      });
+      selectedProjects.forEach(id => {
+        const project = projectsById[id];
+        if (!project) throw new Error("Select valid project values.");
+        addWorkSheetRecords(createProjectWorkSheet_(project.Id, project.ProjectName, result.headers));
+      });
+    }
     const seenWorkIds = {};
     source = Object.assign({}, result, { records: selectedRecords.filter(record => {
       const id = analysisText_(record.WorkId);
@@ -461,8 +473,11 @@ function analyzeMasterData_(resourceName, filters) {
   // Client/project selections decide which mirror tabs are read. Applying
   // them again would turn a requested union of tabs into an intersection.
   if (resourceName === "work") {
-    delete rowFilters.Client;
-    delete rowFilters.Project;
+    delete rowFilters["Full Client Data"];
+    if (!fullClientId) {
+      delete rowFilters.Client;
+      delete rowFilters.Project;
+    }
   }
   const records = source.records.map(record => {
     const enriched = Object.assign({}, record);
