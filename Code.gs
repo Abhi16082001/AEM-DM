@@ -475,6 +475,10 @@ function validateClientData_(data, headers, isUpdate) {
     if (clean[key].length > 5000) {
       throw new Error("A field value is too long.");
     }
+    if (["NonProjectBalance", "ProjectBalance", "TotalBalance", "PaymentRecieved", "PaymentLeft"].includes(key) &&
+        clean[key] && !/^-?\d+(?:\.\d+)?$/.test(clean[key])) {
+      throw new Error(key + " must be an amount.");
+    }
   });
 
   if (!isUpdate && !String(clean.Name || "").trim()) {

@@ -41,14 +41,17 @@
       control = `<textarea id="${id}" name="${escape(field.name)}" rows="3" ${required} ${maxLength}></textarea>`;
     } else if (field.type === "multilookup") {
       control = `<select id="${id}" name="${escape(field.name)}" multiple ${required}></select>`;
-    } else if (field.type === "lookup" || field.type === "options") {
+    } else if (field.type === "options") {
+      control = `<select id="${id}" name="${escape(field.name)}" ${required}></select>`;
+    } else if (field.type === "lookup") {
       control = `<input id="${id}" name="${escape(field.name)}" list="${id}-options" autocomplete="off" ${required} ${maxLength}><datalist id="${id}-options"></datalist>`;
     } else if (field.type === "checkbox") {
       control = `<input id="${id}" name="${escape(field.name)}" type="checkbox">`;
     } else {
       const inputType = field.type === "date" ? "date" : field.type === "integer" || field.type === "number" ? "number" : "text";
-      const integerOnly = field.type === "integer" ? 'step="1" inputmode="numeric"' : "";
-      control = `<input id="${id}" name="${escape(field.name)}" type="${inputType}" ${integerOnly} ${required} ${maxLength}>`;
+      const numberAttributes = field.type === "integer" ? 'step="1" inputmode="numeric"'
+        : field.type === "number" ? 'step="any" inputmode="decimal"' : "";
+      control = `<input id="${id}" name="${escape(field.name)}" type="${inputType}" ${numberAttributes} ${required} ${maxLength}>`;
     }
     return `<div class="field-group"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark">*</span>' : ""}</label>${control}</div>`;
   }
@@ -105,6 +108,10 @@
       const control = $("field-" + field.name.replace(/[^a-z0-9]/gi, "-"));
       if (field.type === "multilookup") {
         control.innerHTML = lookupValues[field.name].map(item =>
+          `<option value="${escape(item.key)}">${escape(item.label)}</option>`
+        ).join("");
+      } else if (field.type === "options") {
+        control.innerHTML = `<option value="">Select ${escape(field.label)}</option>` + lookupValues[field.name].map(item =>
           `<option value="${escape(item.key)}">${escape(item.label)}</option>`
         ).join("");
       } else {
@@ -202,7 +209,9 @@
     const values = inputs.map(name => parseNumber($("master-form").elements.namedItem(name).value));
     const result = calculation.operation === "sum"
       ? values.reduce((total, value) => total + value, 0)
-      : values.reduce((total, value) => total * value, 1);
+      : calculation.operation === "subtract"
+        ? values.slice(1).reduce((total, value) => total - value, values[0] || 0)
+        : values.reduce((total, value) => total * value, 1);
     $("master-form").elements.namedItem(calculation.target).value = String(result);
   }
 

@@ -56,7 +56,8 @@
       ? `<textarea id="${id}" name="${window.App.escapeHTML(field.name)}"
              ${required} ${maxLength} rows="3"></textarea>`
       : `<input id="${id}" name="${window.App.escapeHTML(field.name)}"
-             type="${field.type === "email" ? "email" : "text"}"
+             type="${field.type === "email" ? "email" : field.type === "number" ? "number" : "text"}"
+             ${field.type === "number" ? 'step="any" inputmode="decimal"' : ""}
              ${required} ${maxLength}>`;
 
     return `
@@ -71,7 +72,25 @@
   }
 
   function buildForm() {
-    fieldsContainer.innerHTML = editableFields.map(makeField).join("");
+    const calculations = config.CALCULATIONS || [];
+    fieldsContainer.innerHTML = editableFields.map(makeField).join("") + calculations.map((calculation, index) => `
+      <div class="field-group"><label>&nbsp;</label><button id="calculate-client-button-${index}" class="button button-secondary" type="button">${window.App.escapeHTML(calculation.label)}</button></div>
+    `).join("");
+    calculations.forEach((calculation, index) => {
+      document.getElementById("calculate-client-button-" + index).addEventListener("click", () => calculateValue(calculation));
+    });
+  }
+
+  function calculateValue(calculation) {
+    const parseNumber = value => {
+      const number = Number(String(value || "").replace(/,/g, "").trim());
+      return Number.isFinite(number) ? number : 0;
+    };
+    const values = calculation.inputs.map(name => parseNumber(form.elements.namedItem(name).value));
+    const result = calculation.operation === "subtract"
+      ? values.slice(1).reduce((total, value) => total - value, values[0] || 0)
+      : values.reduce((total, value) => total + value, 0);
+    form.elements.namedItem(calculation.target).value = String(result);
   }
 
   function buildTableHeader() {

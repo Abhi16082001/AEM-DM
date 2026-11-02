@@ -105,7 +105,18 @@ window.APP_CONFIG = {
         visibleInTable: true,
         editable: true,
         required: false
-      }
+      },
+      { name: "NonProjectBalance", label: "Non-Project Balance", type: "number", visibleInTable: true, editable: true, required: false, maxLength: 100 },
+      { name: "ProjectBalance", label: "Project Balance", type: "number", visibleInTable: true, editable: true, required: false, maxLength: 100 },
+      { name: "TotalBalance", label: "Total Balance", type: "number", visibleInTable: true, editable: true, required: false, maxLength: 100 },
+      { name: "PaymentRecieved", label: "Payment Recieved", type: "number", visibleInTable: true, editable: true, required: false, maxLength: 100 },
+      { name: "PaymentLeft", label: "Payment Left", type: "number", visibleInTable: true, editable: true, required: false, maxLength: 100 },
+      { name: "Remarks", label: "Remarks", type: "textarea", visibleInTable: true, editable: true, required: false, maxLength: 1000 }
+    ],
+
+    CALCULATIONS: [
+      { target: "TotalBalance", inputs: ["ProjectBalance", "NonProjectBalance"], operation: "sum", label: "Calculate Total Balance" },
+      { target: "PaymentLeft", inputs: ["TotalBalance", "PaymentRecieved"], operation: "subtract", label: "Calculate Payment Left" }
     ],
 
     ACTIONS: ["view", "edit", "delete"]
@@ -297,6 +308,9 @@ BILLERS: {
     },
     projects: {
       resource: "projects", title: "Project Management", singular: "Project", sheetName: "Projects", primaryKey: "Id", autoId: true,
+      calculations: [
+        { target: "PaymentLeft", inputs: ["ProjectAmount", "PaymentRecieved"], operation: "subtract", label: "Calculate Payment Left" }
+      ],
       fields: [
         { name: "Id", label: "Project ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "ProjectName", label: "Project Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 200 },
@@ -304,7 +318,11 @@ BILLERS: {
         { name: "ProjectStartDate", label: "Project Start Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "ProjectEndDate", label: "Project End Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "ProjectAmount", label: "Project Amount", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
-        { name: "ProjectDescription", label: "Project Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 }
+        { name: "ProjectDescription", label: "Project Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 },
+        { name: "PaymentRecieved", label: "Payment Recieved", type: "number", required: false, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "PaymentLeft", label: "Payment Left", type: "number", required: false, editable: true, visibleInTable: true, maxLength: 100 },
+        { name: "ProjectStatus", label: "Project Status", type: "options", options: ["Not Started", "Started", "Pending", "Completed", "Not Completed"], required: false, editable: true, visibleInTable: true },
+        { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
     }
   }

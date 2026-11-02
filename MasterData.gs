@@ -15,7 +15,7 @@ const MASTER_DATA_RESOURCES = {
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
   statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
   dataType: { sheetName: "DataType", initialHeaders: ["Data Type Name"], primaryKey: "Data Type Name", required: ["Data Type Name"] },
-  projects: { sheetName: "Projects", initialHeaders: ["Id", "ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount", "ProjectDescription"], primaryKey: "Id", required: ["ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount"], autoId: true }
+  projects: { sheetName: "Projects", initialHeaders: ["Id", "ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount", "ProjectDescription", "PaymentRecieved", "PaymentLeft", "ProjectStatus", "Remarks"], primaryKey: "Id", required: ["ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount"], autoId: true }
 };
 
 function handleMasterDataAction_(request) {
@@ -142,9 +142,18 @@ function validateMasterDataLookup_(resourceName, clean) {
     if (!masterDataKeyExists_("bank", clean.Bank)) throw new Error("Select a valid bank account.");
     if (!["Debit", "Credit"].includes(clean["Debit/Credit"])) throw new Error("Select Debit or Credit.");
   }
-  if (resourceName === "projects" && clean.ClientId &&
-      !readClients_().clients.some(client => String(client.Id) === clean.ClientId)) {
-    throw new Error("Select a valid client.");
+  if (resourceName === "projects") {
+    if (clean.ClientId && !readClients_().clients.some(client => String(client.Id) === clean.ClientId)) {
+      throw new Error("Select a valid client.");
+    }
+    ["PaymentRecieved", "PaymentLeft"].forEach(header => {
+      if (clean[header] && !/^-?\d+(?:\.\d+)?$/.test(clean[header])) {
+        throw new Error(header + " must be an amount.");
+      }
+    });
+    if (clean.ProjectStatus && !["Not Started", "Started", "Pending", "Completed", "Not Completed"].includes(clean.ProjectStatus)) {
+      throw new Error("Select a valid project status.");
+    }
   }
   if (resourceName === "bank" && !["Saving", "Current"].includes(clean["Saving/Current"])) {
     throw new Error("Select Saving or Current.");
