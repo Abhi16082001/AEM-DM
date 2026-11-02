@@ -6,15 +6,15 @@ const MASTER_DATA_RESOURCES = {
   // initialHeaders are used only when this project creates an empty sheet.
   // Once a sheet has headers, those headers are the form's data contract. This
   // lets a new column be added by updating the sheet and js/config.js only.
-  vehicleTypes: { sheetName: "Types", initialHeaders: ["Vehicle Type Name", "Staff Type Name"], primaryKey: "Vehicle Type Name", required: ["Vehicle Type Name"], sharedSheet: true },
-  staffTypes: { sheetName: "Types", initialHeaders: ["Vehicle Type Name", "Staff Type Name"], primaryKey: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true },
+  vehicleTypes: { sheetName: "Types", initialHeaders: ["Id", "Vehicle Type Name", "Staff Type Name", "Data Type Name"], primaryKey: "Id", recordField: "Vehicle Type Name", required: ["Vehicle Type Name"], sharedSheet: true, autoId: true },
+  staffTypes: { sheetName: "Types", initialHeaders: ["Id", "Vehicle Type Name", "Staff Type Name", "Data Type Name"], primaryKey: "Id", recordField: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true, autoId: true },
   vehicles: { sheetName: "Vehicles", initialHeaders: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
   staff: { sheetName: "Staff", initialHeaders: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true },
   work: { sheetName: "Work", initialHeaders: ["WorkId", "DataType", "Description", "Date", "VehicleType", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Quantity", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount"], autoId: true },
   staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
   statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
-  dataType: { sheetName: "DataType", initialHeaders: ["Data Type Name"], primaryKey: "Data Type Name", required: ["Data Type Name"] },
+  dataType: { sheetName: "Types", initialHeaders: ["Id", "Vehicle Type Name", "Staff Type Name", "Data Type Name"], primaryKey: "Id", recordField: "Data Type Name", required: ["Data Type Name"], sharedSheet: true, autoId: true },
   projects: { sheetName: "Projects", initialHeaders: ["Id", "ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount", "ProjectDescription", "PaymentRecieved", "PaymentLeft", "ProjectStatus", "Remarks"], primaryKey: "Id", required: ["ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount"], autoId: true }
 };
 
@@ -64,8 +64,11 @@ function readMasterData_(resourceName) {
   if (lastRow < 2) return Object.assign(result, { records: [] });
   const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getDisplayValues();
   const keyIndex = resource.primaryKey ? headers.indexOf(resource.primaryKey) : -1;
+  const recordFieldIndex = resource.recordField ? headers.indexOf(resource.recordField) : -1;
   const records = values.map((row, index) => ({ row, rowNumber: index + 2 }))
-    .filter(item => resource.primaryKey ? String(item.row[keyIndex] || "").trim() : item.row.some(value => String(value).trim()))
+    .filter(item => resource.primaryKey
+      ? String(item.row[keyIndex] || "").trim() && (recordFieldIndex === -1 || String(item.row[recordFieldIndex] || "").trim())
+      : item.row.some(value => String(value).trim()))
     .map(item => {
     const record = {};
     headers.forEach((header, index) => { record[header] = String(item.row[index] || "").trim(); });
@@ -92,6 +95,12 @@ function validateMasterData_(resource, headers, data) {
       throw new Error(`${header} is required.`);
     }
   });
+  if (resource.sharedSheet) {
+    const typeFields = ["Vehicle Type Name", "Staff Type Name", "Data Type Name"];
+    if (typeFields.filter(header => clean[header]).some(header => header !== resource.recordField)) {
+      throw new Error("A Types row may contain only one type name.");
+    }
+  }
   return clean;
 }
 
@@ -110,11 +119,11 @@ function findMasterDataRow_(sheet, headers, primaryKey, id) {
 
 function validateMasterDataLookup_(resourceName, clean) {
   if (resourceName === "vehicles" && clean.Type) {
-    const types = readMasterData_("vehicleTypes").records.map(record => record["Vehicle Type Name"]);
+    const types = readMasterData_("vehicleTypes").records.map(record => record.Id);
     if (!types.includes(clean.Type)) throw new Error("Select a valid vehicle type.");
   }
   if (resourceName === "staff" && clean.Type) {
-    const types = readMasterData_("staffTypes").records.map(record => record["Staff Type Name"]);
+    const types = readMasterData_("staffTypes").records.map(record => record.Id);
     if (!types.includes(clean.Type)) throw new Error("Select a valid staff type.");
   }
   if (resourceName === "work") {
@@ -261,9 +270,9 @@ function createMasterData_(resourceName, data) {
     const id = resource.primaryKey ? clean[resource.primaryKey] : "";
     if (resource.primaryKey && !id) throw new Error(`${resource.primaryKey} is required.`);
     if (resource.primaryKey && findMasterDataRow_(sheet, headers, resource.primaryKey, id) !== -1) throw new Error(`${resource.primaryKey} already exists.`);
-    if (resourceName === "dataType" && readMasterData_("dataType").records
-      .some(record => String(record["Data Type Name"]).toLowerCase() === id.toLowerCase())) {
-      throw new Error("Data Type Name already exists.");
+    if (resource.recordField && readMasterData_(resourceName).records.some(record =>
+      String(record[resource.recordField]).toLowerCase() === String(clean[resource.recordField] || "").toLowerCase())) {
+      throw new Error(resource.recordField + " already exists.");
     }
     validateMasterDataLookup_(resourceName, clean);
     const row = headers.map(header => Object.prototype.hasOwnProperty.call(clean, header) ? clean[header] : "");
@@ -299,10 +308,10 @@ function updateMasterData_(resourceName, originalId, data) {
     if (resource.primaryKey && !newId) throw new Error(`${resource.primaryKey} is required.`);
     const duplicateRow = resource.primaryKey ? findMasterDataRow_(sheet, headers, resource.primaryKey, newId) : -1;
     if (resource.primaryKey && duplicateRow !== -1 && duplicateRow !== rowNumber) throw new Error(`${resource.primaryKey} already exists.`);
-    if (resourceName === "dataType" && readMasterData_("dataType").records.some(record =>
+    if (resource.recordField && readMasterData_(resourceName).records.some(record =>
       Number(record._rowId) !== rowNumber &&
-      String(record["Data Type Name"]).toLowerCase() === newId.toLowerCase())) {
-      throw new Error("Data Type Name already exists.");
+      String(record[resource.recordField]).toLowerCase() === String(clean[resource.recordField] || "").toLowerCase())) {
+      throw new Error(resource.recordField + " already exists.");
     }
     validateMasterDataLookup_(resourceName, clean);
     const current = sheet.getRange(rowNumber, 1, 1, headers.length).getDisplayValues()[0];
@@ -353,7 +362,7 @@ function deleteMasterData_(resourceName, idValue) {
         if (mirrorRow !== -1) target.sheet.deleteRow(mirrorRow);
       });
     }
-    if (resource.sharedSheet) sheet.getRange(rowNumber, headers.indexOf(resource.primaryKey) + 1).clearContent();
+    if (resource.sharedSheet) sheet.getRange(rowNumber, 1, 1, headers.length).clearContent();
     else sheet.deleteRow(rowNumber);
     return json_({ success: true, message: "Record deleted successfully." });
   } finally { lock.releaseLock(); }

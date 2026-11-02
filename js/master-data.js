@@ -102,6 +102,13 @@
           const clientsById = Object.fromEntries((clientResult.clients || []).map(client => [String(client.Id), client.Name || ""]));
           source = source.map(record => Object.assign({}, record, { ClientName: clientsById[String(record.ClientId)] || "" }));
         }
+        if (field.lookupResource === "vehicles" || field.lookupResource === "staff") {
+          const typeResource = field.lookupResource === "vehicles" ? "vehicleTypes" : "staffTypes";
+          const typeNameField = field.lookupResource === "vehicles" ? "Vehicle Type Name" : "Staff Type Name";
+          const typeResult = await window.App.apiRequest("listMasterData", { resource: typeResource });
+          const typeNamesById = Object.fromEntries((typeResult.records || []).map(type => [String(type.Id), type[typeNameField] || ""]));
+          source = source.map(record => Object.assign({}, record, { TypeName: typeNamesById[String(record.Type)] || "" }));
+        }
         // lookupField is retained as a friendly alias for older config entries.
         // A lookup always submits the key while its searchable list shows a label.
         const keyField = field.lookupKey || field.lookupField;

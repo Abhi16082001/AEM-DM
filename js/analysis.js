@@ -120,6 +120,13 @@
           const clientsById = Object.fromEntries((clientResult.clients || []).map(client => [String(client.Id), client.Name || ""]));
           source = source.map(record => Object.assign({}, record, { ClientName: clientsById[String(record.ClientId)] || "" }));
         }
+        if (field.lookupResource === "vehicles" || field.lookupResource === "staff") {
+          const typeResource = field.lookupResource === "vehicles" ? "vehicleTypes" : "staffTypes";
+          const typeNameField = field.lookupResource === "vehicles" ? "Vehicle Type Name" : "Staff Type Name";
+          const typeResult = await window.App.apiRequest("listMasterData", { resource: typeResource });
+          const typeNamesById = Object.fromEntries((typeResult.records || []).map(type => [String(type.Id), type[typeNameField] || ""]));
+          source = source.map(record => Object.assign({}, record, { TypeName: typeNamesById[String(record.Type)] || "" }));
+        }
         lookupValues[field.name] = source.map(record => ({
           key: String(record[keyField] || ""),
           label: String(field.lookupDisplay ? field.lookupDisplay(record) : record[keyField] || "")

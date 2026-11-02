@@ -212,8 +212,9 @@ BILLERS: {
 
   MASTER_DATA: {
     vehicleTypes: {
-      resource: "vehicleTypes", title: "Vehicle Type Management", singular: "Vehicle Type", sheetName: "Types", primaryKey: "Vehicle Type Name",
+      resource: "vehicleTypes", title: "Vehicle Type Management", singular: "Vehicle Type", sheetName: "Types", primaryKey: "Id", autoId: true,
       fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Vehicle Type Name", label: "Vehicle Type Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 }
       ]
     },
@@ -221,12 +222,13 @@ BILLERS: {
       resource: "vehicles", title: "Vehicle Management", singular: "Vehicle", sheetName: "Vehicles", primaryKey: "Vehicle No",
       fields: [
         { name: "Vehicle No", label: "Vehicle No", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 80 },
-        { name: "Type", label: "Type", type: "lookup", lookupResource: "vehicleTypes", lookupField: "Vehicle Type Name", required: true, editable: true, visibleInTable: true, maxLength: 150 }
+        { name: "Type", label: "Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Id", lookupDisplay: record => record["Vehicle Type Name"], required: true, editable: true, visibleInTable: true, maxLength: 150 }
       ]
     },
     staffTypes: {
-      resource: "staffTypes", title: "Staff Type Management", singular: "Staff Type", sheetName: "Types", primaryKey: "Staff Type Name",
+      resource: "staffTypes", title: "Staff Type Management", singular: "Staff Type", sheetName: "Types", primaryKey: "Id", autoId: true,
       fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Staff Type Name", label: "Staff Type Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 }
       ]
     },
@@ -235,7 +237,7 @@ BILLERS: {
       fields: [
         { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Name", label: "Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 },
-        { name: "Type", label: "Type", type: "lookup", lookupResource: "staffTypes", lookupField: "Staff Type Name", required: true, editable: true, visibleInTable: true, maxLength: 150 },
+        { name: "Type", label: "Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Id", lookupDisplay: record => record["Staff Type Name"], required: true, editable: true, visibleInTable: true, maxLength: 150 },
         { name: "Salary", label: "Salary", type: "number", required: true, editable: true, visibleInTable: true, maxLength: 20 },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
@@ -248,11 +250,11 @@ BILLERS: {
       ],
       fields: [
         { name: "WorkId", label: "Work ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
-        { name: "DataType", label: "Data Type", type: "lookup", lookupResource: "dataType", lookupKey: "Data Type Name", lookupDisplay: record => record["Data Type Name"], required: true, editable: true, visibleInTable: true },
+        { name: "DataType", label: "Data Type", type: "lookup", lookupResource: "dataType", lookupKey: "Id", lookupDisplay: record => record["Data Type Name"], required: true, editable: true, visibleInTable: true },
         { name: "Description", label: "Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
-        { name: "VehicleType", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, editable: true, visibleInTable: true },
-        { name: "Vehicle", label: "Vehicle", type: "multilookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: false, editable: true, visibleInTable: true },
+        { name: "VehicleType", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Id", lookupDisplay: record => record["Vehicle Type Name"], required: false, editable: true, visibleInTable: true },
+        { name: "Vehicle", label: "Vehicle", type: "multilookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.TypeName || record.Type})`, required: false, editable: true, visibleInTable: true },
         { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true },
         { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.ClientName || record.ClientId})`, required: false, editable: true, visibleInTable: true },
         { name: "SiteAddress", label: "Site Address", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 },
@@ -263,7 +265,7 @@ BILLERS: {
         { name: "Diesel", label: "Diesel", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Additional Charge", label: "Additional Charge", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Net Amount", label: "Net Amount", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
-        { name: "Staff", label: "Staff", type: "multilookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name}(${record.Type})`, required: false, editable: true, visibleInTable: true },
+        { name: "Staff", label: "Staff", type: "multilookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name}(${record.TypeName || record.Type})`, required: false, editable: true, visibleInTable: true },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
     },
@@ -271,7 +273,7 @@ BILLERS: {
       resource: "staffManagement", title: "Staff Management", singular: "Staff Payment", sheetName: "StaffManagement",
       fields: [
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
-        { name: "Staff", label: "Staff", type: "lookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.Type})`, required: true, editable: true, visibleInTable: true },
+        { name: "Staff", label: "Staff", type: "lookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.TypeName || record.Type})`, required: true, editable: true, visibleInTable: true },
         { name: "Amount", label: "Amount", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
@@ -301,8 +303,9 @@ BILLERS: {
       ]
     },
     dataType: {
-      resource: "dataType", title: "Data Type", singular: "Data Type", sheetName: "DataType", primaryKey: "Data Type Name",
+      resource: "dataType", title: "Data Type", singular: "Data Type", sheetName: "Types", primaryKey: "Id", autoId: true,
       fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Data Type Name", label: "Data Type Name", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 150 }
       ]
     },
@@ -358,7 +361,7 @@ window.APP_CONFIG.ANALYSIS = {
     groupColors: [{ background: "#dbeafe", color: "#1e3a8a" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: [
       ...window.APP_CONFIG.MASTER_DATA.staffManagement.fields.map(field => Object.assign({}, field, { required: false })),
-      { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
+      { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Id", lookupDisplay: record => record["Staff Type Name"], required: false, visibleInTable: true }
     ]
   }
 };
