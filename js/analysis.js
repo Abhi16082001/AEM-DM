@@ -114,7 +114,13 @@
         const action = field.lookupAction || "listMasterData";
         const result = await window.App.apiRequest(action, field.lookupAction ? {} : { resource: field.lookupResource });
         const keyField = field.lookupKey || field.lookupField;
-        lookupValues[field.name] = (result[field.lookupResponse || "records"] || []).map(record => ({
+        let source = result[field.lookupResponse || "records"] || [];
+        if (field.lookupResource === "projects") {
+          const clientResult = await window.App.apiRequest("listClients");
+          const clientsById = Object.fromEntries((clientResult.clients || []).map(client => [String(client.Id), client.Name || ""]));
+          source = source.map(record => Object.assign({}, record, { ClientName: clientsById[String(record.ClientId)] || "" }));
+        }
+        lookupValues[field.name] = source.map(record => ({
           key: String(record[keyField] || ""),
           label: String(field.lookupDisplay ? field.lookupDisplay(record) : record[keyField] || "")
         })).filter(item => item.key && item.label);

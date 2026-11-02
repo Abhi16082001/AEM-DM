@@ -254,7 +254,7 @@ BILLERS: {
         { name: "VehicleType", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Vehicle Type Name", required: false, editable: true, visibleInTable: true },
         { name: "Vehicle", label: "Vehicle", type: "multilookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.Type})`, required: false, editable: true, visibleInTable: true },
         { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true },
-        { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.Id})`, required: false, editable: true, visibleInTable: true },
+        { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.ClientName || record.ClientId})`, required: false, editable: true, visibleInTable: true },
         { name: "SiteAddress", label: "Site Address", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 },
         { name: "Quantity", label: "Quantity", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Night", label: "Night", type: "checkbox", required: false, editable: true, visibleInTable: true },
@@ -263,7 +263,7 @@ BILLERS: {
         { name: "Diesel", label: "Diesel", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Additional Charge", label: "Additional Charge", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Net Amount", label: "Net Amount", type: "integer", required: true, editable: true, visibleInTable: true, maxLength: 100 },
-        { name: "Staff", label: "Staff", type: "multilookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.Type})`, required: false, editable: true, visibleInTable: true },
+        { name: "Staff", label: "Staff", type: "multilookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name}(${record.Type})`, required: false, editable: true, visibleInTable: true },
         { name: "Remarks", label: "Remarks", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 }
       ]
     },
@@ -345,8 +345,7 @@ window.APP_CONFIG.ANALYSIS = {
         return ["Vehicle", "Client", "Project"].includes(field.name)
           ? Object.assign(analysisField, { type: "multilookup" }) : analysisField;
       }),
-      { name: "Full Client Data", label: "Full Client Data", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, filterOnly: true },
-      { name: "Staff Type", label: "Staff Type", type: "lookup", lookupResource: "staffTypes", lookupKey: "Staff Type Name", required: false, visibleInTable: true }
+      { name: "Full Client Data", label: "Full Client Data", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, filterOnly: true }
     ]
   },
   statement: {

@@ -363,7 +363,7 @@ function deleteMasterData_(resourceName, idValue) {
 
 function analysisFields_(resourceName, headers) {
   const derived = {
-    work: ["Staff Type"],
+    work: [],
     staffManagement: ["Staff Type"],
     statement: []
   };
@@ -475,7 +475,7 @@ function analyzeMasterData_(resourceName, filters) {
     }) });
   }
 
-  const staff = (resourceName === "work" || resourceName === "staffManagement")
+  const staff = resourceName === "staffManagement"
     ? readMasterData_("staff").records : [];
 
   const rowFilters = Object.assign({}, filters);
@@ -490,14 +490,6 @@ function analyzeMasterData_(resourceName, filters) {
   }
   const records = source.records.map(record => {
     const enriched = Object.assign({}, record);
-    if (resourceName === "work") {
-      const staffIds = String(record.Staff || "").split(",").map(value => value.trim()).filter(Boolean);
-      const staffTypes = staffIds.map(id => {
-        const staffMember = staff.find(item => String(item.Id) === id);
-        return staffMember ? staffMember.Type : "";
-      }).filter(Boolean);
-      enriched["Staff Type"] = staffTypes.filter((value, index) => staffTypes.indexOf(value) === index).join(", ");
-    }
     if (resourceName === "staffManagement") {
       const staffMember = staff.find(item => String(item.Id) === String(record.Staff));
       enriched["Staff Type"] = staffMember ? staffMember.Type : "";
