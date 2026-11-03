@@ -249,14 +249,16 @@ BILLERS: {
         { target: "Net Amount", inputs: ["Total", "Diesel", "Additional Charge"], operation: "sum", label: "Calculate Net Amount" }
       ],
       fields: [
+        { name: "TargetType", label: "Add work to", type: "workTargetType", required: true, editable: true, visibleInTable: false },
+        { name: "TargetSheet", label: "Target Sheet", type: "workTargetSheet", required: true, editable: true, visibleInTable: false },
         { name: "WorkId", label: "Work ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "DataType", label: "Data Type", type: "lookup", lookupResource: "dataType", lookupKey: "Id", lookupDisplay: record => record["Data Type Name"], required: true, editable: true, visibleInTable: true },
         { name: "Description", label: "Description", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 5000 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "VehicleType", label: "Vehicle Type", type: "lookup", lookupResource: "vehicleTypes", lookupKey: "Id", lookupDisplay: record => record["Vehicle Type Name"], required: false, editable: true, visibleInTable: true },
         { name: "Vehicle", label: "Vehicle", type: "multilookup", lookupResource: "vehicles", lookupKey: "Vehicle No", lookupDisplay: record => `${record["Vehicle No"]} (${record.TypeName || record.Type})`, required: false, editable: true, visibleInTable: true },
-        { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true },
-        { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.ClientName || record.ClientId})`, required: false, editable: true, visibleInTable: true },
+        { name: "Client", label: "Client", type: "lookup", lookupAction: "listClients", lookupResponse: "clients", lookupKey: "Id", lookupDisplay: record => `${record["Company Name"] || record.CompanyName || ""} (${record.Name || ""})`, required: false, editable: true, visibleInTable: true, hiddenInForm: true },
+        { name: "Project", label: "Project", type: "lookup", lookupResource: "projects", lookupKey: "Id", lookupDisplay: record => `${record.ProjectName}(${record.ClientName || record.ClientId})`, required: false, editable: true, visibleInTable: true, hiddenInForm: true },
         { name: "SiteAddress", label: "Site Address", type: "textarea", required: false, editable: true, visibleInTable: true, maxLength: 1000 },
         { name: "Quantity", label: "Quantity", type: "text", required: false, editable: true, visibleInTable: true, maxLength: 100 },
         { name: "Night", label: "Night", type: "checkbox", required: false, editable: true, visibleInTable: true },
@@ -343,7 +345,9 @@ window.APP_CONFIG.ANALYSIS = {
     ],
     groupColors: [{ background: "#a2bde1", color: "#17307d" }, { background: "#e0f2fe", color: "#0c4a6e" }],
     fields: [
-      ...window.APP_CONFIG.MASTER_DATA.work.fields.map(field => {
+      ...window.APP_CONFIG.MASTER_DATA.work.fields
+        .filter(field => !["workTargetType", "workTargetSheet"].includes(field.type))
+        .map(field => {
         const analysisField = Object.assign({}, field, { required: false });
         return ["Vehicle", "Client", "Project"].includes(field.name)
           ? Object.assign(analysisField, { type: "multilookup" }) : analysisField;

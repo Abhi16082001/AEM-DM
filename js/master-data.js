@@ -8,6 +8,7 @@
 
   const $ = id => document.getElementById(id);
   const fields = config.fields;
+  const formFields = fields.filter(field => !field.hiddenInForm);
   const tableFields = fields.filter(field => field.visibleInTable);
   const lookupValues = {};
   let records = [], editingKey = null, busy = false;
@@ -37,7 +38,11 @@
     const required = field.required ? "required" : "";
     const maxLength = field.maxLength ? `maxlength="${Number(field.maxLength)}"` : "";
     let control;
-    if (field.type === "textarea") {
+    if (field.type === "workTargetType") {
+      control = `<div class="radio-group"><label><input type="radio" name="${escape(field.name)}" value="client" required> Client</label><label><input type="radio" name="${escape(field.name)}" value="project" required> Project</label></div>`;
+    } else if (field.type === "workTargetSheet") {
+      control = `<select id="${id}" name="${escape(field.name)}" required disabled><option value="">Select Client or Project first</option></select>`;
+    } else if (field.type === "textarea") {
       control = `<textarea id="${id}" name="${escape(field.name)}" rows="3" ${required} ${maxLength}></textarea>`;
     } else if (field.type === "multilookup") {
       control = `<select id="${id}" name="${escape(field.name)}" multiple ${required}></select>`;
@@ -58,7 +63,7 @@
 
   function buildForm() {
     const calculations = config.calculations || (config.calculation ? [config.calculation] : []);
-    $("master-fields").innerHTML = fields.map(fieldHtml).join("") + calculations.map((calculation, index) =>
+    $("master-fields").innerHTML = formFields.map(fieldHtml).join("") + calculations.map((calculation, index) =>
       `<div class="field-group"><label>&nbsp;</label><button id="calculate-button-${index}" class="button button-secondary" type="button">${escape(calculation.label)}</button></div>`
     ).join("");
     calculations.forEach((calculation, index) => {
@@ -118,6 +123,9 @@
         })).filter(item => item.key && item.label);
       }
       const control = $("field-" + field.name.replace(/[^a-z0-9]/gi, "-"));
+      // Some lookup values are needed for table display even when the field is
+      // system-managed and intentionally omitted from this form.
+      if (!control) return;
       if (field.type === "multilookup") {
         control.innerHTML = lookupValues[field.name].map(item =>
           `<option value="${escape(item.key)}">${escape(item.label)}</option>`
@@ -131,10 +139,43 @@
         list.innerHTML = lookupValues[field.name].map(item => `<option value="${escape(item.label)}"></option>`).join("");
       }
     }));
+    if (config.resource === "work") await loadWorkTargets();
+  }
+  async function loadWorkTargets() {
+    const [clientResult, projectResult] = await Promise.all([
+      window.App.apiRequest("listClients"),
+      window.App.apiRequest("listMasterData", { resource: "projects" })
+    ]);
+    const clientsById = Object.fromEntries((clientResult.clients || []).map(record => [String(record.Id), record.Name || ""]));
+    lookupValues.TargetSheet = {
+      client: (clientResult.clients || []).map(record => ({
+        key: String(record.Id), label: `${record.Name || ""} (${record["Company Name"] || record.CompanyName || ""})`
+      })),
+      project: (projectResult.records || []).map(record => ({
+        key: String(record.Id), label: `${record.ProjectName || ""} (${clientsById[String(record.ClientId)] || ""})`
+      }))
+    };
+    const radios = [...document.querySelectorAll('input[name="TargetType"]')];
+    radios.forEach(radio => radio.onchange = () => populateWorkTargets(radio.value));
+  }
+  function populateWorkTargets(type, selectedValue = "") {
+    const control = $("field-TargetSheet");
+    const values = (lookupValues.TargetSheet || {})[type] || [];
+    control.disabled = !type;
+    control.innerHTML = `<option value="">Select Target Sheet</option>` + values.map(item =>
+      `<option value="${escape(item.key)}">${escape(item.label)}</option>`
+    ).join("");
+    control.value = selectedValue;
   }
   async function setSuggestedId() {
     if (!config.autoId || editingKey) return;
-    const result = await window.App.apiRequest("nextMasterDataId", { resource: config.resource });
+    const targetType = config.resource === "work" ? document.querySelector('input[name="TargetType"]:checked')?.value : "";
+    const targetId = config.resource === "work" ? $("field-TargetSheet").value : "";
+    if (config.resource === "work" && (!targetType || !targetId)) {
+      $("master-form").elements.namedItem(config.primaryKey).value = "";
+      return;
+    }
+    const result = await window.App.apiRequest("nextMasterDataId", { resource: config.resource, targetType, targetId });
     $("master-form").elements.namedItem(config.primaryKey).value = result.nextId;
   }
   async function loadRecords() {
@@ -147,13 +188,27 @@
   }
   async function resetForm() {
     editingKey = null; $("master-form").reset(); $("form-title").textContent = `Add ${config.singular}`;
+    if (config.resource === "work") {
+      $("field-TargetSheet").disabled = true;
+      $("field-TargetSheet").innerHTML = '<option value="">Select Client or Project first</option>';
+      document.querySelectorAll('input[name="TargetType"]').forEach(input => { input.disabled = false; });
+    }
     $("save-button").textContent = `Save ${config.singular}`; $("cancel-button").hidden = true; status($("form-status"), "");
     try { await setSuggestedId(); } catch (error) { status($("form-status"), error.message, "error"); }
   }
   function editRecord(record) {
     editingKey = recordKey(record);
-    fields.forEach(field => {
+    formFields.forEach(field => {
       const input = $("master-form").elements.namedItem(field.name);
+      if (field.type === "workTargetType") {
+        const type = record._targetType;
+        document.querySelector(`input[name="TargetType"][value="${type}"]`).checked = true;
+        document.querySelectorAll('input[name="TargetType"]').forEach(item => { item.disabled = true; });
+        populateWorkTargets(type, record._targetId);
+        $("field-TargetSheet").disabled = true;
+        return;
+      }
+      if (field.type === "workTargetSheet") return;
       if (field.type === "checkbox") input.checked = String(record[field.name]).toLowerCase() === "true";
       else if (field.type === "multilookup") {
         const selected = new Set(String(record[field.name] || "").split(",").map(value => value.trim()));
@@ -165,18 +220,22 @@
   }
   function showDetails(record) {
     $("dialog-title").textContent = `${config.singular} Details`;
-    $("record-details").innerHTML = fields.map(f => `<div class="detail-item"><span>${escape(f.label)}</span><p>${escape((f.type === "lookup" || f.type === "multilookup") ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—") || "—"}</p></div>`).join("");
+    $("record-details").innerHTML = fields.filter(f => !["workTargetType", "workTargetSheet"].includes(f.type)).map(f => `<div class="detail-item"><span>${escape(f.label)}</span><p>${escape((f.type === "lookup" || f.type === "multilookup") ? lookupDisplay(f, record[f.name]) : record[f.name] ?? "—") || "—"}</p></div>`).join("");
     $("record-dialog").showModal();
   }
 
   $("master-form").addEventListener("submit", async event => {
     event.preventDefault(); if (busy || !event.currentTarget.reportValidity()) return;
     const data = {};
-    for (const field of fields) {
+    for (const field of formFields) {
       const input = event.currentTarget.elements.namedItem(field.name);
-      const value = field.type === "checkbox" ? String(input.checked) : field.type === "multilookup"
+      const value = field.type === "workTargetType" ? (document.querySelector('input[name="TargetType"]:checked')?.value || "") : field.type === "checkbox" ? String(input.checked) : field.type === "multilookup"
         ? [...input.selectedOptions].map(option => option.value).join(",") : input.value.trim();
-      if (field.type === "lookup" || field.type === "options") {
+      if (field.type === "workTargetSheet") {
+        data[field.name] = value;
+      } else if (field.type === "workTargetType") {
+        data[field.name] = value;
+      } else if (field.type === "lookup" || field.type === "options") {
         if (!value && !field.required) {
           data[field.name] = "";
           continue;
@@ -210,6 +269,11 @@
   });
   $("cancel-button").addEventListener("click", resetForm);
   $("refresh-button").addEventListener("click", async () => { await loadLookups(); await loadRecords(); });
+  if (config.resource === "work") {
+    $("master-form").addEventListener("change", event => {
+      if (event.target.name === "TargetSheet") setSuggestedId().catch(error => status($("form-status"), error.message, "error"));
+    });
+  }
   $("close-dialog").addEventListener("click", () => $("record-dialog").close());
 
   function calculateValue(calculation) {

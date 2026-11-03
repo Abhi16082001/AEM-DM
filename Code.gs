@@ -115,7 +115,11 @@ function doPost(e) {
     console.error(error);
     return json_({
       success: false,
-      message: "The request could not be processed."
+      // Validation functions deliberately throw concise, user-safe messages.
+      // Return that message so the form can explain what needs correcting.
+      message: error && error.message
+        ? String(error.message)
+        : "The request could not be processed."
     });
   }
 }
@@ -545,8 +549,7 @@ function createClient_(data) {
 
     // Provision the per-client sheet before changing the Clients sheet, so a
     // configuration or sheet-name error cannot leave a partially created client.
-    const work = getMasterDataSheet_("work");
-    createClientWorkSheet_(id, clean.Name, work.headers);
+    createClientWorkSheet_(id, clean.Name, getWorkHeaders_());
 
     const newRow = sheet.getLastRow() + 1;
     sheet.getRange(newRow, 1, 1, row.length).setNumberFormat("@");

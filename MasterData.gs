@@ -10,7 +10,7 @@ const MASTER_DATA_RESOURCES = {
   staffTypes: { sheetName: "Types", initialHeaders: ["Id", "Vehicle Type Name", "Staff Type Name", "Data Type Name"], primaryKey: "Id", recordField: "Staff Type Name", required: ["Staff Type Name"], sharedSheet: true, autoId: true },
   vehicles: { sheetName: "Vehicles", initialHeaders: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
   staff: { sheetName: "Staff", initialHeaders: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true },
-  work: { sheetName: "Work", initialHeaders: ["WorkId", "DataType", "Description", "Date", "VehicleType", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Quantity", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount"], autoId: true },
+  work: { initialHeaders: ["WorkId", "DataType", "Description", "Date", "VehicleType", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Total", "Net Amount"], autoId: true },
   staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
   statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
@@ -24,7 +24,7 @@ function handleMasterDataAction_(request) {
     case "createMasterData": return createMasterData_(request.resource, request.data || {});
     case "updateMasterData": return updateMasterData_(request.resource, request.id, request.data || {});
     case "deleteMasterData": return deleteMasterData_(request.resource, request.id);
-    case "nextMasterDataId": return nextMasterDataId_(request.resource);
+    case "nextMasterDataId": return nextMasterDataId_(request.resource, request.targetType, request.targetId);
     case "analyzeMasterData": return analyzeMasterData_(request.resource, request.filters || {});
     default: return null;
   }
@@ -38,6 +38,7 @@ function getMasterDataResource_(name) {
 
 function getMasterDataSheet_(resourceName) {
   const resource = getMasterDataResource_(resourceName);
+  if (resourceName === "work") throw new Error("Work records are stored in client and project sheets.");
   const ss = getSpreadsheet_();
   let sheet = ss.getSheetByName(resource.sheetName);
   if (!sheet) sheet = ss.insertSheet(resource.sheetName);
@@ -87,7 +88,7 @@ function validateMasterData_(resource, headers, data) {
     const value = data[header];
     if (value !== undefined && value !== null && typeof value === "object") throw new Error("Field values must be plain text.");
     clean[header] = String(value || "").trim();
-    const maxLength = resource.sheetName === "Work" && header === "Description" ? 5000 : 1000;
+    const maxLength = resource.primaryKey === "WorkId" && header === "Description" ? 5000 : 1000;
     if (clean[header].length > maxLength) throw new Error("A field value is too long.");
   });
   resource.required.forEach(header => {
@@ -129,7 +130,7 @@ function validateMasterDataLookup_(resourceName, clean) {
   if (resourceName === "work") {
     if (!masterDataKeyExists_("dataType", clean.DataType)) throw new Error("Select a valid data type.");
     ["Diesel", "Additional Charge", "Net Amount"].forEach(header => {
-      if (!/^-?\d+$/.test(String(clean[header] || ""))) {
+      if (clean[header] && !/^-?\d+$/.test(String(clean[header]))) {
         throw new Error(header + " must be an integer.");
       }
     });
@@ -193,75 +194,166 @@ function getNextStaffId_(sheet, headers) {
   return String(maxId + 1);
 }
 
-function getNextWorkId_(sheet, headers) {
-  const idColumn = headers.indexOf("WorkId") + 1;
+function getNextProjectId_(sheet, headers) {
+  const idColumn = headers.indexOf("Id") + 1;
   const lastRow = sheet.getLastRow();
   let maxId = 0;
-  if (idColumn && lastRow >= 2) {
-    sheet.getRange(2, idColumn, lastRow - 1, 1).getDisplayValues().forEach(row => {
-      const match = String(row[0]).trim().match(/^W(\d+)$/i);
-      if (match) maxId = Math.max(maxId, Number(match[1]));
-    });
-  }
-  return "W" + (maxId + 1);
+  if (idColumn && lastRow >= 2) sheet.getRange(2, idColumn, lastRow - 1, 1).getDisplayValues().forEach(row => {
+    const match = String(row[0]).trim().match(/^P(\d+)$/i);
+    if (match) maxId = Math.max(maxId, Number(match[1]));
+  });
+  return "P" + (maxId + 1);
 }
 
 function nextMasterDataIdValue_(resourceName, sheet, headers) {
-  return resourceName === "work" ? getNextWorkId_(sheet, headers) : getNextStaffId_(sheet, headers);
+  if (resourceName === "projects") return getNextProjectId_(sheet, headers);
+  return getNextStaffId_(sheet, headers);
 }
 
 function listMasterData_(resourceName) {
+  if (resourceName === "work") return listWorkRecords_();
   const result = readMasterData_(resourceName);
   return json_({ success: true, records: result.records, fields: result.headers });
 }
 
-function nextMasterDataId_(resourceName) {
+function nextMasterDataId_(resourceName, targetType, targetId) {
+  if (resourceName === "work") return nextWorkId_(targetType, targetId);
   const { resource, sheet, headers } = getMasterDataSheet_(resourceName);
   if (!resource.autoId) throw new Error("This resource does not use generated IDs.");
   return json_({ success: true, nextId: nextMasterDataIdValue_(resourceName, sheet, headers) });
 }
 
-function getWorkMirrorTargets_(record, headers) {
+function getWorkHeaders_() {
+  return getMasterDataResource_("work").initialHeaders.slice();
+}
+
+function getWorkTarget_(targetType, targetId) {
+  const type = String(targetType || "").toLowerCase();
+  const id = String(targetId || "").trim();
+  const headers = getWorkHeaders_();
+  if (type === "client") {
+    const client = readClients_().clients.find(item => String(item.Id) === id);
+    if (!client) throw new Error("Select a valid client target sheet.");
+    return { type, id, sheet: createClientWorkSheet_(client.Id, client.Name, headers), headers };
+  }
+  if (type === "project") {
+    const project = readMasterData_("projects").records.find(item => String(item.Id) === id);
+    if (!project) throw new Error("Select a valid project target sheet.");
+    return { type, id, sheet: createProjectWorkSheet_(project.Id, project.ProjectName, headers), headers };
+  }
+  throw new Error("Choose Client or Project and a target sheet.");
+}
+
+function nextWorkIdForTarget_(target) {
+  const idColumn = target.headers.indexOf("WorkId") + 1;
+  const suffix = String(target.id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp("^(\\d+)" + suffix + "$", "i");
+  let maxSequence = 0;
+  const lastRow = target.sheet.getLastRow();
+  if (lastRow >= 2) target.sheet.getRange(2, idColumn, lastRow - 1, 1).getDisplayValues().forEach(row => {
+    const match = String(row[0]).trim().match(pattern);
+    if (match) maxSequence = Math.max(maxSequence, Number(match[1]));
+  });
+  return String(maxSequence + 1) + target.id;
+}
+
+function nextWorkId_(targetType, targetId) {
+  const target = getWorkTarget_(targetType, targetId);
+  return json_({ success: true, nextId: nextWorkIdForTarget_(target) });
+}
+
+function readWorkSheet_(target) {
+  const lastRow = target.sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return target.sheet.getRange(2, 1, lastRow - 1, target.headers.length).getDisplayValues()
+    .map((row, index) => ({ row, rowNumber: index + 2 }))
+    .filter(item => item.row.some(value => String(value).trim()))
+    .map(item => {
+      const record = { _rowId: String(item.rowNumber), _targetType: target.type, _targetId: target.id };
+      target.headers.forEach((header, column) => { record[header] = String(item.row[column] || "").trim(); });
+      return record;
+    });
+}
+
+function listWorkTargets_() {
   const targets = [];
-  if (record.Client) {
-    const client = readClients_().clients.find(item => String(item.Id) === String(record.Client));
-    if (!client) throw new Error("Select a valid client.");
-    targets.push({
-      key: "client:" + client.Id,
-      sheet: createClientWorkSheet_(client.Id, client.Name, headers)
-    });
-  }
-  if (record.Project) {
-    const project = readMasterData_("projects").records
-      .find(item => String(item.Id) === String(record.Project));
-    if (!project) throw new Error("Select a valid project.");
-    targets.push({
-      key: "project:" + project.Id,
-      sheet: createProjectWorkSheet_(project.Id, project.ProjectName, headers)
-    });
-  }
+  readClients_().clients.forEach(client => targets.push(getWorkTarget_("client", client.Id)));
+  readMasterData_("projects").records.forEach(project => targets.push(getWorkTarget_("project", project.Id)));
   return targets;
 }
 
-function findWorkMirrorRowById_(sheet, headers, workId) {
-  const idColumn = headers.indexOf("WorkId") + 1;
-  const lastRow = sheet.getLastRow();
-  if (!idColumn || lastRow < 2) return -1;
-  const values = sheet.getRange(2, idColumn, lastRow - 1, 1).getDisplayValues();
-  for (let index = 0; index < values.length; index++) {
-    if (String(values[index][0]).trim() === String(workId).trim()) return index + 2;
-  }
-  return -1;
+function listWorkRecords_() {
+  const result = readAllWorkRecords_();
+  return json_({ success: true, records: result.records, fields: result.headers });
 }
 
-function writeWorkMirrorRow_(sheet, row, rowNumber) {
-  const destinationRow = rowNumber || sheet.getLastRow() + 1;
-  sheet.getRange(destinationRow, 1, 1, row.length).setNumberFormat("@").setValues([row]);
+function readAllWorkRecords_() {
+  return {
+    headers: getWorkHeaders_(),
+    records: listWorkTargets_().reduce((all, target) => all.concat(readWorkSheet_(target)), [])
+  };
+}
+
+function findWorkRecord_(workId) {
+  const id = String(workId || "").trim();
+  for (const target of listWorkTargets_()) {
+    const record = readWorkSheet_(target).find(item => item.WorkId === id);
+    if (record) return { target, record };
+  }
+  return null;
+}
+
+function workRowNumber_(target, workId) {
+  return findMasterDataRow_(target.sheet, target.headers, "WorkId", workId);
+}
+
+function validateWorkTargetData_(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid work record data.");
+  const target = getWorkTarget_(data.TargetType, data.TargetSheet);
+  const allowed = new Set(target.headers.concat(["TargetType", "TargetSheet"]));
+  if (Object.keys(data).some(key => !allowed.has(key))) throw new Error("Invalid field supplied.");
+  const workData = {};
+  target.headers.forEach(header => { if (Object.prototype.hasOwnProperty.call(data, header)) workData[header] = data[header]; });
+  const clean = validateMasterData_(getMasterDataResource_("work"), target.headers, workData);
+  clean.Client = target.type === "client" ? target.id : "";
+  clean.Project = target.type === "project" ? target.id : "";
+  validateMasterDataLookup_("work", clean);
+  return { target, clean };
+}
+
+function createWorkRecord_(data) {
+  const { target, clean } = validateWorkTargetData_(data);
+  clean.WorkId = nextWorkIdForTarget_(target);
+  const row = target.headers.map(header => clean[header] || "");
+  target.sheet.getRange(target.sheet.getLastRow() + 1, 1, 1, row.length).setNumberFormat("@").setValues([row]);
+  return json_({ success: true, id: clean.WorkId, message: "Work record created successfully." });
+}
+
+function updateWorkRecord_(workId, data) {
+  const found = findWorkRecord_(workId);
+  if (!found) throw new Error("Work record was not found.");
+  const { target, clean } = validateWorkTargetData_(data);
+  if (target.type !== found.target.type || target.id !== found.target.id) {
+    throw new Error("A work record cannot be moved to another target sheet.");
+  }
+  clean.WorkId = found.record.WorkId;
+  const rowNumber = workRowNumber_(target, clean.WorkId);
+  target.sheet.getRange(rowNumber, 1, 1, target.headers.length)
+    .setNumberFormat("@").setValues([target.headers.map(header => clean[header] || "")]);
+  return json_({ success: true, id: clean.WorkId, message: "Work record updated successfully." });
+}
+
+function deleteWorkRecord_(workId) {
+  const found = findWorkRecord_(workId);
+  if (!found) throw new Error("Work record was not found.");
+  found.target.sheet.deleteRow(workRowNumber_(found.target, found.record.WorkId));
+  return json_({ success: true, message: "Work record deleted successfully." });
 }
 
 function createMasterData_(resourceName, data) {
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
+    if (resourceName === "work") return createWorkRecord_(data);
     const { resource, sheet, headers } = getMasterDataSheet_(resourceName);
     const clean = validateMasterData_(resource, headers, data);
     if (resource.autoId && !clean[resource.primaryKey]) {
@@ -269,6 +361,9 @@ function createMasterData_(resourceName, data) {
     }
     const id = resource.primaryKey ? clean[resource.primaryKey] : "";
     if (resource.primaryKey && !id) throw new Error(`${resource.primaryKey} is required.`);
+    if (resourceName === "projects" && !/^P\d+$/i.test(id)) {
+      throw new Error("Project ID must use the format P1, P2, P3, etc.");
+    }
     if (resource.primaryKey && findMasterDataRow_(sheet, headers, resource.primaryKey, id) !== -1) throw new Error(`${resource.primaryKey} already exists.`);
     if (resource.recordField && readMasterData_(resourceName).records.some(record =>
       String(record[resource.recordField]).toLowerCase() === String(clean[resource.recordField] || "").toLowerCase())) {
@@ -276,21 +371,12 @@ function createMasterData_(resourceName, data) {
     }
     validateMasterDataLookup_(resourceName, clean);
     const row = headers.map(header => Object.prototype.hasOwnProperty.call(clean, header) ? clean[header] : "");
-    // Check/provision every selected destination before the primary Work row
-    // is written, then use the same row in every destination.
-    const workMirrorTargets = resourceName === "work"
-      ? getWorkMirrorTargets_(clean, headers) : [];
     if (resourceName === "projects") {
-      // Provision this before writing the project row so a configuration or
-      // tab-name error cannot leave a project without its Work tab.
-      const work = getMasterDataSheet_("work");
-      createProjectWorkSheet_(id, clean.ProjectName, work.headers);
+      createProjectWorkSheet_(id, clean.ProjectName, getWorkHeaders_());
     }
 
     const rowNumber = sheet.getLastRow() + 1;
     sheet.getRange(rowNumber, 1, 1, row.length).setNumberFormat("@").setValues([row]);
-
-    workMirrorTargets.forEach(target => writeWorkMirrorRow_(target.sheet, row));
 
     return json_({ success: true, id, message: "Record created successfully." });
   } finally { lock.releaseLock(); }
@@ -300,12 +386,16 @@ function updateMasterData_(resourceName, originalId, data) {
   const id = String(originalId || "").trim();
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
+    if (resourceName === "work") return updateWorkRecord_(id, data);
     const { resource, sheet, headers } = getMasterDataSheet_(resourceName);
     const rowNumber = findMasterDataRow_(sheet, headers, resource.primaryKey, id);
     if (rowNumber === -1) throw new Error("Record was not found.");
     const clean = validateMasterData_(resource, headers, data);
     const newId = resource.primaryKey ? clean[resource.primaryKey] : id;
     if (resource.primaryKey && !newId) throw new Error(`${resource.primaryKey} is required.`);
+    if (resourceName === "projects" && newId !== id && !/^P\d+$/i.test(newId)) {
+      throw new Error("Project ID must use the format P1, P2, P3, etc.");
+    }
     const duplicateRow = resource.primaryKey ? findMasterDataRow_(sheet, headers, resource.primaryKey, newId) : -1;
     if (resource.primaryKey && duplicateRow !== -1 && duplicateRow !== rowNumber) throw new Error(`${resource.primaryKey} already exists.`);
     if (resource.recordField && readMasterData_(resourceName).records.some(record =>
@@ -318,29 +408,6 @@ function updateMasterData_(resourceName, originalId, data) {
     const updated = headers.map((header, index) =>
       Object.prototype.hasOwnProperty.call(clean, header) ? clean[header] : current[index]
     );
-    if (resourceName === "work") {
-      const oldRecord = {};
-      headers.forEach((header, index) => { oldRecord[header] = current[index]; });
-      const oldTargets = getWorkMirrorTargets_(oldRecord, headers);
-      const newTargets = getWorkMirrorTargets_(Object.assign({}, oldRecord, clean), headers);
-      const newTargetByKey = {};
-      const synchronized = {};
-      newTargets.forEach(target => { newTargetByKey[target.key] = target; });
-
-      oldTargets.forEach(target => {
-        const mirrorRow = findWorkMirrorRowById_(target.sheet, headers, current[headers.indexOf("WorkId")]);
-        if (mirrorRow === -1) return;
-        if (newTargetByKey[target.key]) {
-          writeWorkMirrorRow_(target.sheet, updated, mirrorRow);
-          synchronized[target.key] = true;
-        } else {
-          target.sheet.deleteRow(mirrorRow);
-        }
-      });
-      newTargets.forEach(target => {
-        if (!synchronized[target.key]) writeWorkMirrorRow_(target.sheet, updated);
-      });
-    }
     sheet.getRange(rowNumber, 1, 1, updated.length).setNumberFormat("@").setValues([updated]);
     return json_({ success: true, id: newId, message: "Record updated successfully." });
   } finally { lock.releaseLock(); }
@@ -350,18 +417,10 @@ function deleteMasterData_(resourceName, idValue) {
   const id = String(idValue || "").trim();
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
+    if (resourceName === "work") return deleteWorkRecord_(id);
     const { resource, sheet, headers } = getMasterDataSheet_(resourceName);
     const rowNumber = findMasterDataRow_(sheet, headers, resource.primaryKey, id);
     if (rowNumber === -1) throw new Error("Record was not found.");
-    if (resourceName === "work") {
-      const current = sheet.getRange(rowNumber, 1, 1, headers.length).getDisplayValues()[0];
-      const record = {};
-      headers.forEach((header, index) => { record[header] = current[index]; });
-      getWorkMirrorTargets_(record, headers).forEach(target => {
-        const mirrorRow = findWorkMirrorRowById_(target.sheet, headers, record.WorkId);
-        if (mirrorRow !== -1) target.sheet.deleteRow(mirrorRow);
-      });
-    }
     if (resource.sharedSheet) sheet.getRange(rowNumber, 1, 1, headers.length).clearContent();
     else sheet.deleteRow(rowNumber);
     return json_({ success: true, message: "Record deleted successfully." });
@@ -422,7 +481,7 @@ function analyzeMasterData_(resourceName, filters) {
     throw new Error("Invalid analysis filters.");
   }
 
-  const result = readMasterData_(resourceName);
+  const result = resourceName === "work" ? readAllWorkRecords_() : readMasterData_(resourceName);
   const allowedFields = analysisFields_(resourceName, result.headers);
   Object.keys(filters).forEach(field => {
     const isDateRange = (field === "DateFrom" || field === "DateTo") && allowedFields.includes("Date");
@@ -438,64 +497,31 @@ function analyzeMasterData_(resourceName, filters) {
   const selectedClients = resourceName === "work" ? analysisDelimitedValues_(filters.Client) : [];
   const selectedProjects = resourceName === "work" ? analysisDelimitedValues_(filters.Project) : [];
   const fullClientId = resourceName === "work" ? analysisText_(filters["Full Client Data"]) : "";
-  if (fullClientId || selectedClients.length || selectedProjects.length) {
-    const selectedRecords = [];
-    const addWorkSheetRecords = sheet => {
-      const lastRow = sheet.getLastRow();
-      if (lastRow < 2) return;
-      sheet.getRange(2, 1, lastRow - 1, result.headers.length).getDisplayValues()
-        .filter(row => row.some(value => String(value).trim()))
-        .forEach((row, index) => {
-          const record = { _rowId: String(index + 2) };
-          result.headers.forEach((header, column) => { record[header] = String(row[column] || "").trim(); });
-          selectedRecords.push(record);
-        });
-    };
-    const projectsById = {};
-    const projects = readMasterData_("projects").records;
-    projects.forEach(project => { projectsById[String(project.Id)] = project; });
-    const clientsById = {};
-    readClients_().clients.forEach(client => { clientsById[String(client.Id)] = client; });
-    if (fullClientId) {
-      const client = clientsById[fullClientId];
-      if (!client) throw new Error("Select a valid full client data value.");
-      addWorkSheetRecords(createClientWorkSheet_(client.Id, client.Name, result.headers));
-      projects.filter(project => String(project.ClientId) === fullClientId).forEach(project => {
-        addWorkSheetRecords(createProjectWorkSheet_(project.Id, project.ProjectName, result.headers));
-      });
-    } else {
-      selectedClients.forEach(id => {
-        const client = clientsById[id];
-        if (!client) throw new Error("Select valid client values.");
-        addWorkSheetRecords(createClientWorkSheet_(client.Id, client.Name, result.headers));
-      });
-      selectedProjects.forEach(id => {
-        const project = projectsById[id];
-        if (!project) throw new Error("Select valid project values.");
-        addWorkSheetRecords(createProjectWorkSheet_(project.Id, project.ProjectName, result.headers));
-      });
-    }
-    const seenWorkIds = {};
-    source = Object.assign({}, result, { records: selectedRecords.filter(record => {
-      const id = analysisText_(record.WorkId);
-      if (!id || seenWorkIds[id]) return false;
-      seenWorkIds[id] = true;
-      return true;
-    }) });
+  if (resourceName === "work" && fullClientId) {
+    const clients = readClients_().clients;
+    if (!clients.some(client => String(client.Id) === fullClientId)) throw new Error("Select a valid full client data value.");
+    const projectIds = new Set(readMasterData_("projects").records
+      .filter(project => String(project.ClientId) === fullClientId).map(project => String(project.Id)));
+    source = Object.assign({}, result, { records: result.records.filter(record =>
+      String(record.Client) === fullClientId || projectIds.has(String(record.Project))) });
+  }
+  // Client/project selectors identify target sheets. When both are present,
+  // use their union rather than requiring a row to belong to both targets.
+  if (resourceName === "work" && (selectedClients.length || selectedProjects.length)) {
+    const clientIds = new Set(selectedClients);
+    const projectIds = new Set(selectedProjects);
+    source = Object.assign({}, source, { records: source.records.filter(record =>
+      clientIds.has(String(record.Client)) || projectIds.has(String(record.Project))) });
   }
 
   const staff = resourceName === "staffManagement"
     ? readMasterData_("staff").records : [];
 
   const rowFilters = Object.assign({}, filters);
-  // Client/project selections decide which mirror tabs are read. Applying
-  // them again would turn a requested union of tabs into an intersection.
   if (resourceName === "work") {
     delete rowFilters["Full Client Data"];
-    if (!fullClientId) {
-      delete rowFilters.Client;
-      delete rowFilters.Project;
-    }
+    delete rowFilters.Client;
+    delete rowFilters.Project;
   }
   const records = source.records.map(record => {
     const enriched = Object.assign({}, record);
