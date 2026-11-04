@@ -14,6 +14,7 @@
   const totalField = config.totalField;
   const calculationFields = config.calculationFields || (totalField ? [{ field: totalField, label: "Calculate Total" }] : []);
   let records = [];
+  let hasAppliedFilters = false;
 
   $("page-title").textContent = config.title;
   $("table-title").textContent = `${config.singular} Results`;
@@ -146,6 +147,11 @@
 
   function buildTable() {
     $("records-head").innerHTML = `<tr>${tableFields.map(field => `<th scope="col">${escape(field.label)}</th>`).join("")}</tr>`;
+    if (!hasAppliedFilters) {
+      $("records-body").innerHTML = `<tr><td colspan="${tableFields.length}" class="empty-state">Choose filter values and select Apply Filters to load records.</td></tr>`;
+      window.App.paginateTable($("records-body"));
+      return;
+    }
     if (!records.length) {
       $("records-body").innerHTML = `<tr><td colspan="${tableFields.length}" class="empty-state">No matching records found.</td></tr>`;
       window.App.paginateTable($("records-body"));
@@ -256,6 +262,7 @@
       status($("table-status"), "Loading results…");
       const result = await window.App.apiRequest("analyzeMasterData", { resource: config.resource, filters: filtersFromForm() });
       records = result.records || [];
+      hasAppliedFilters = true;
       applySort();
       buildTable();
       $("calculated-total").textContent = "";
@@ -279,11 +286,24 @@
   $("sort-by").addEventListener("change", () => { applySort(); buildTable(); });
   $("sort-order").addEventListener("change", () => { applySort(); buildTable(); });
   $("analysis-form").addEventListener("submit", event => { event.preventDefault(); status($("filter-status"), ""); runAnalysis(); });
-  $("clear-button").addEventListener("click", () => { $("analysis-form").reset(); status($("filter-status"), ""); runAnalysis(); });
-  $("refresh-button").addEventListener("click", runAnalysis);
+  $("clear-button").addEventListener("click", () => {
+    $("analysis-form").reset();
+    records = [];
+    hasAppliedFilters = false;
+    buildTable();
+    setCalculationButtonsVisible(false);
+    $("download-button").hidden = true;
+    $("calculated-total").textContent = "";
+    status($("filter-status"), "");
+    status($("table-status"), "Choose filter values and select Apply Filters to load records.");
+  });
 
   (async () => {
-    try { await loadLookups(); await runAnalysis(); }
+    try {
+      await loadLookups();
+      buildTable();
+      status($("table-status"), "Choose filter values and select Apply Filters to load records.");
+    }
     catch (error) { status($("filter-status"), error.message, "error"); }
   })();
 })();
