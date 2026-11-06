@@ -22,9 +22,7 @@
   let editingId = null;
   let busy = false;
 
-  const editableFields = fields.filter(field =>
-    field.name !== "Id" && field.editable !== false
-  );
+  const editableFields = fields.filter(field => field.editable !== false);
 
   const tableFields = fields.filter(field =>
     field.visibleInTable && field.name !== "SiteAddress"

@@ -11,9 +11,9 @@ const MASTER_DATA_RESOURCES = {
   vehicles: { sheetName: "Vehicles", initialHeaders: ["Vehicle No", "Type"], primaryKey: "Vehicle No", required: ["Vehicle No", "Type"] },
   staff: { sheetName: "Staff", initialHeaders: ["Id", "Name", "Type", "Remarks"], primaryKey: "Id", required: ["Id", "Name", "Type"], autoId: true },
   work: { initialHeaders: ["WorkId", "DataType", "Description", "Date", "VehicleType", "Vehicle", "Client", "Project", "SiteAddress", "Quantity", "Night", "Rate", "Total", "Diesel", "Additional Charge", "Net Amount", "Staff", "Remarks"], primaryKey: "WorkId", required: ["DataType", "Date", "Total", "Net Amount"], autoId: true },
-  staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Date", "Staff", "Amount", "Remarks"], required: ["Date", "Staff", "Amount"] },
+  staffManagement: { sheetName: "StaffManagement", initialHeaders: ["Id", "Date", "Staff", "Amount", "Remarks"], primaryKey: "Id", required: ["Date", "Staff", "Amount"], autoId: true },
   bank: { sheetName: "Bank", initialHeaders: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Branch Name", "Saving/Current", "IFSC Code"], primaryKey: "Id", required: ["Id", "Account Holder Name", "Last 6 Digit of Bank Account", "Bank Name", "Saving/Current", "IFSC Code"], autoId: true },
-  statement: { sheetName: "Statement", initialHeaders: ["Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"] },
+  statement: { sheetName: "Statement", initialHeaders: ["Id", "Date", "Bank", "Debit/Credit", "Amount", "To/From", "BillNo", "Remarks"], primaryKey: "Id", required: ["Date", "Bank", "Debit/Credit", "Amount", "To/From"], autoId: true },
   dataType: { sheetName: "Types", initialHeaders: ["Id", "Vehicle Type Name", "Staff Type Name", "Data Type Name"], primaryKey: "Id", recordField: "Data Type Name", required: ["Data Type Name"], sharedSheet: true, autoId: true },
   projects: { sheetName: "Projects", initialHeaders: ["Id", "ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount", "ProjectDescription", "PaymentRecieved", "PaymentLeft", "ProjectStatus", "Remarks"], primaryKey: "Id", required: ["ProjectName", "ClientId", "ProjectStartDate", "ProjectEndDate", "ProjectAmount"], autoId: true }
 };
@@ -205,8 +205,22 @@ function getNextProjectId_(sheet, headers) {
   return "P" + (maxId + 1);
 }
 
+function getNextPrefixedMasterDataId_(sheet, headers, prefix) {
+  const idColumn = headers.indexOf("Id") + 1;
+  const lastRow = sheet.getLastRow();
+  const pattern = new RegExp("^" + prefix + "(\\d+)$", "i");
+  let maxId = 0;
+  if (idColumn && lastRow >= 2) sheet.getRange(2, idColumn, lastRow - 1, 1).getDisplayValues().forEach(row => {
+    const match = String(row[0]).trim().match(pattern);
+    if (match) maxId = Math.max(maxId, Number(match[1]));
+  });
+  return prefix + (maxId + 1);
+}
+
 function nextMasterDataIdValue_(resourceName, sheet, headers) {
   if (resourceName === "projects") return getNextProjectId_(sheet, headers);
+  if (resourceName === "staffManagement") return getNextPrefixedMasterDataId_(sheet, headers, "S");
+  if (resourceName === "statement") return getNextPrefixedMasterDataId_(sheet, headers, "ST");
   return getNextStaffId_(sheet, headers);
 }
 

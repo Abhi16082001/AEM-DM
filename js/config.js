@@ -59,7 +59,7 @@ window.APP_CONFIG = {
         label: "Client ID",
         type: "text",
         visibleInTable: true,
-        editable: false,
+        editable: true,
         required: false
       },
       {
@@ -131,7 +131,7 @@ BILLERS: {
       label: "Biller ID",
       type: "text",
       visibleInTable: true,
-      editable: false,
+      editable: true,
       required: false
     },
     {
@@ -272,8 +272,9 @@ BILLERS: {
       ]
     },
     staffManagement: {
-      resource: "staffManagement", title: "Staff Management", singular: "Staff Payment", sheetName: "StaffManagement",
+      resource: "staffManagement", title: "Staff Management", singular: "Staff Payment", sheetName: "StaffManagement", primaryKey: "Id", autoId: true,
       fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "Staff", label: "Staff", type: "lookup", lookupResource: "staff", lookupKey: "Id", lookupDisplay: record => `${record.Name} (${record.TypeName || record.Type})`, required: true, editable: true, visibleInTable: true },
         { name: "Amount", label: "Amount", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 100 },
@@ -293,8 +294,9 @@ BILLERS: {
       ]
     },
     statement: {
-      resource: "statement", title: "Statement Management", singular: "Statement Entry", sheetName: "Statement",
+      resource: "statement", title: "Statement Management", singular: "Statement Entry", sheetName: "Statement", primaryKey: "Id", autoId: true,
       fields: [
+        { name: "Id", label: "ID", type: "text", required: true, editable: true, visibleInTable: true, maxLength: 30 },
         { name: "Date", label: "Date", type: "date", required: true, editable: true, visibleInTable: true },
         { name: "Bank", label: "Bank", type: "lookup", lookupResource: "bank", lookupKey: "Id", lookupDisplay: record => `${record["Bank Name"]} (${record["Last 6 Digit of Bank Account"]}/${record["Account Holder Name"]})`, required: true, editable: true, visibleInTable: true },
         { name: "Debit/Credit", label: "Debit/Credit", type: "options", options: ["Debit", "Credit"], required: true, editable: true, visibleInTable: true },
