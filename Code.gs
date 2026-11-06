@@ -73,6 +73,9 @@ function doPost(e) {
       case "listClients":
         return listClients_();
 
+      case "nextClientId":
+        return nextClientIdResponse_();
+
       case "createClient":
         return createClient_(request.data);
 
@@ -84,6 +87,9 @@ function doPost(e) {
 
       case "listBillers":
         return listBillers_();
+
+      case "nextBillerId":
+        return nextBillerIdResponse_();
 
       case "createBiller":
         return createBiller_(request.data || {});
@@ -518,6 +524,24 @@ function listClients_() {
   });
 }
 
+function nextClientId_(sheet, headers) {
+  let maxId = 0;
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const idIndex = headers.indexOf("Id");
+    sheet.getRange(2, idIndex + 1, lastRow - 1, 1).getDisplayValues().forEach(([id]) => {
+      const match = String(id).match(/^C(\d+)$/i);
+      if (match) maxId = Math.max(maxId, Number(match[1]));
+    });
+  }
+  return "C" + (maxId + 1);
+}
+
+function nextClientIdResponse_() {
+  const { sheet, headers } = getClientsSheet_();
+  return json_({ success: true, nextId: nextClientId_(sheet, headers) });
+}
+
 function createClient_(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
@@ -527,22 +551,7 @@ function createClient_(data) {
     const clean = validateClientData_(data, headers, false);
 
     // Use the maximum existing numeric suffix, not merely the last row.
-    let maxId = 0;
-    const lastRow = sheet.getLastRow();
-
-    if (lastRow >= 2) {
-      const idIndex = headers.indexOf("Id");
-      const ids = sheet.getRange(
-        2, idIndex + 1, lastRow - 1, 1
-      ).getDisplayValues();
-
-      ids.forEach(([id]) => {
-        const match = String(id).match(/^C(\d+)$/);
-        if (match) maxId = Math.max(maxId, Number(match[1]));
-      });
-    }
-
-    const id = "C" + (maxId + 1);
+    const id = nextClientId_(sheet, headers);
     const row = headers.map(header =>
       header === "Id" ? id : (clean[header] ?? "")
     );
@@ -894,6 +903,10 @@ function nextBillerId_(sheet) {
   });
 
   return "B" + (maxId + 1);
+}
+
+function nextBillerIdResponse_() {
+  return json_({ success: true, nextId: nextBillerId_(getBillersSheet_()) });
 }
 
 function createBiller_(data) {

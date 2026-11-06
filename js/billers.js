@@ -18,6 +18,7 @@
   const editableFields = config.FIELDS.filter(
     field => field.editable
   );
+  const submittedFields = editableFields.filter(field => field.name !== "Id");
   const tableFields = config.FIELDS.filter(
     field => field.visibleInTable
   );
@@ -222,6 +223,7 @@
             type="${type}"
             maxlength="${field.maxLength || 500}"
             ${field.required ? "required" : ""}
+            ${field.readOnly ? "readonly" : ""}
             autocomplete="off"
           >
         </div>
@@ -264,7 +266,7 @@
     if (input) input.value = value ?? "";
   }
 
-  function resetForm() {
+  function resetForm({ suggestId = true } = {}) {
     form.reset();
 
     editableFields.forEach(field => setFieldValue(field, ""));
@@ -274,6 +276,11 @@
     cancelButton.hidden = true;
     setBusy(false);
     showStatus(formStatus, "");
+    if (suggestId) {
+      setSuggestedBillerId().catch(error => {
+        showStatus(formStatus, error.message || "Unable to generate a biller ID.", "error");
+      });
+    }
   }
 
   function renderTable() {
@@ -324,8 +331,14 @@
     );
   }
 
+  async function setSuggestedBillerId() {
+    if (editingId) return;
+    const result = await window.App.apiRequest("nextBillerId");
+    setFieldValue(config.FIELDS.find(field => field.name === "Id"), result.nextId || "");
+  }
+
   function beginEdit(biller) {
-    resetForm();
+    resetForm({ suggestId: false });
     editingId = biller.Id;
 
     editableFields.forEach(field => {
@@ -455,7 +468,7 @@
 
     const data = {};
 
-    for (const field of editableFields) {
+    for (const field of submittedFields) {
       const value = getFieldValue(field);
 
       if (field.required &&
@@ -555,6 +568,7 @@
   window.App.renderNavbar("billers.html");
 
   renderForm();
+  resetForm();
 
   loadBillers().catch(error => {
     showStatus(

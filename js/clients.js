@@ -23,6 +23,7 @@
   let busy = false;
 
   const editableFields = fields.filter(field => field.editable !== false);
+  const submittedFields = editableFields.filter(field => field.name !== "Id");
 
   const tableFields = fields.filter(field =>
     field.visibleInTable && field.name !== "SiteAddress"
@@ -49,6 +50,7 @@
     const maxLength = field.maxLength
       ? `maxlength="${Number(field.maxLength)}"`
       : "";
+    const readOnly = field.readOnly ? "readonly" : "";
 
     const control = field.type === "textarea"
       ? `<textarea id="${id}" name="${window.App.escapeHTML(field.name)}"
@@ -56,7 +58,7 @@
       : `<input id="${id}" name="${window.App.escapeHTML(field.name)}"
              type="${field.type === "email" ? "email" : field.type === "number" ? "number" : "text"}"
              ${field.type === "number" ? 'step="any" inputmode="decimal"' : ""}
-             ${required} ${maxLength}>`;
+             ${required} ${maxLength} ${readOnly}>`;
 
     return `
       <div class="field-group">
@@ -156,6 +158,13 @@
     }
   }
 
+  async function setSuggestedClientId() {
+    if (editingId) return;
+    const result = await window.App.apiRequest("nextClientId");
+    const input = form.elements.namedItem("Id");
+    if (input) input.value = result.nextId || "";
+  }
+
   function resetForm() {
     editingId = null;
     form.reset();
@@ -163,6 +172,7 @@
     saveButton.textContent = "Save Client";
     cancelButton.hidden = true;
     showStatus(formStatus, "");
+    setSuggestedClientId().catch(error => showStatus(formStatus, error.message, "error"));
   }
 
   function fillForm(client) {
@@ -229,7 +239,7 @@ form.addEventListener("submit", async event => {
   const wasEditing = Boolean(editingId);
   const data = {};
 
-  for (const field of editableFields) {
+  for (const field of submittedFields) {
     data[field.name] = form.elements.namedItem(field.name).value.trim();
   }
 
@@ -301,5 +311,6 @@ form.addEventListener("submit", async event => {
 
   buildForm();
   buildTableHeader();
+  resetForm();
   loadClients();
 })();

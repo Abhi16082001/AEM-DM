@@ -60,6 +60,7 @@ window.APP_CONFIG = {
         type: "text",
         visibleInTable: true,
         editable: true,
+        readOnly: true,
         required: false
       },
       {
@@ -132,6 +133,7 @@ BILLERS: {
       type: "text",
       visibleInTable: true,
       editable: true,
+      readOnly: true,
       required: false
     },
     {
